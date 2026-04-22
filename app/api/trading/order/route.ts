@@ -1,11 +1,18 @@
-import { alpaca } from "@/lib/alpaca"
+import { placeOrder } from "@/lib/alpaca"
 import { createClient } from "@/lib/supabase/server"
 
 export async function POST(req: Request) {
   const body = await req.json()
-  const { symbol, qty, side, type = "market", limit_price, stop_price, time_in_force = "day", source = "manual" } = body
+  const {
+    symbol,
+    qty,
+    side,
+    type = "market",
+    limit_price,
+    time_in_force = "day",
+    source = "manual",
+  } = body
 
-  // Check guardrails
   const supabase = await createClient()
   const { data: settings } = await supabase.from("trading_settings").select("*").eq("id", 1).maybeSingle()
 
@@ -17,13 +24,12 @@ export async function POST(req: Request) {
   }
 
   try {
-    const order = await alpaca.placeOrder({
+    const order = await placeOrder({
       symbol: String(symbol).toUpperCase(),
       qty: Number(qty),
       side,
       type,
       limit_price,
-      stop_price,
       time_in_force,
     })
 

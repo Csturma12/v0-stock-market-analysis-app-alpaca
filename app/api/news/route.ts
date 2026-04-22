@@ -1,43 +1,84 @@
 import { NextResponse } from "next/server"
-import { getSubIndustry } from "@/lib/constants"
+import { getSubIndustry, getSector } from "@/lib/constants"
 import { getTickerNews } from "@/lib/polygon"
 import { getCompanyNews, getMarketNews } from "@/lib/finnhub"
 import { tavilySearch } from "@/lib/tavily"
 
 export const revalidate = 120
 
+type NewsOut = {
+  id: string
+  title: string
+  source: string
+  url: string
+  publishedAt: string
+  summary?: string
+  description?: string
+  tickers?: string[]
+  sentiment?: "bullish" | "bearish" | "neutral" | string
+  image?: string
+  category?: string
+  origin: "polygon" | "finnhub" | "tavily"
+}
+
 export async function GET(req: Request) {
   const url = new URL(req.url)
-  const sector = url.searchParams.get("sector") ?? ""
-  const sub = url.searchParams.get("sub") ?? ""
-  const ctx = getSubIndustry(sector, sub)
-  if (!ctx?.sub) return NextResponse.json({ error: "not found" }, { status: 404 })
+  const sectorId = url.searchParams.get("sector") ?? ""
+  const subId = url.searchParams.get("sub") ?? ""
+  const tickersParam = url.searchParams.get("tickers") ?? ""
+  const category = (url.searchParams.get("category") ?? "all").toLowerCase()
 
-  const topTickers = ctx.sub.tickers.slice(0, 6)
+  // Resolve tickers and topic label
+  let tickers: string[] = []
+  let topicLabel = "US stock market"
 
-  const [polyNews, finnhubNews, merger, tavily] = await Promise.all([
+  if (tickersParam) {
+    tickers = tickersParam
+      .split(",")
+      .map((t) => t.trim().toUpperCase())
+      .filter(Boolean)
+    topicLabel = tickers.join(" ")
+  } else {
+    const ctx = getSubIndustry(sectorId, subId)
+    if (ctx?.sub) {
+      tickers = ctx.sub.tickers.slice(0, 6)
+      topicLabel = `${ctx.sector.name} · ${ctx.sub.name}`
+    } else {
+      const sector = getSector(sectorId)
+      if (sector) {
+        const seen = new Set<string>()
+        for (const s of sector.subIndustries) for (const t of s.tickers) if (seen.size < 10) seen.add(t)
+        tickers = [...seen]
+        topicLabel = sector.name
+      }
+    }
+  }
+
+  const topTickers = tickers.slice(0, 6)
+
+  // Tavily query focused on requested category
+  const catQuery: Record<string, string> = {
+    ma: "mergers acquisitions deal announcement takeover",
+    analyst: "analyst upgrade downgrade price target rating",
+    social: "reddit stocktwits retail sentiment social media",
+    macro: "geopolitical macro fed policy interest rates regulation",
+    all: "news analyst mergers acquisitions regulatory",
+    news: "news earnings guidance",
+  }
+  const queryExtra = catQuery[category] ?? catQuery.all
+
+  const [polyNews, finnhubNews, merger, tav] = await Promise.all([
     Promise.all(topTickers.map((t) => getTickerNews(t, 5))).then((arr) => arr.flat()),
     Promise.all(topTickers.slice(0, 3).map((t) => getCompanyNews(t, 5))).then((arr) => arr.flat()),
-    getMarketNews("merger"),
-    tavilySearch(
-      `${ctx.sub.name} sector news: mergers acquisitions analyst upgrades downgrades regulatory geopolitical macro ${topTickers.join(" ")}`,
-      { topic: "news", maxResults: 8, days: 7 },
-    ),
+    category === "ma" || category === "all" ? getMarketNews("merger") : Promise.resolve([]),
+    tavilySearch(`${topicLabel} ${queryExtra} ${topTickers.join(" ")}`, {
+      topic: "news",
+      maxResults: 8,
+      days: 7,
+    }),
   ])
 
-  // Normalize
-  const items: Array<{
-    id: string
-    title: string
-    source: string
-    url: string
-    publishedAt: string
-    description?: string
-    tickers?: string[]
-    sentiment?: string
-    image?: string
-    origin: "polygon" | "finnhub" | "tavily"
-  }> = []
+  const items: NewsOut[] = []
 
   for (const n of polyNews) {
     items.push({
@@ -46,10 +87,12 @@ export async function GET(req: Request) {
       source: n.publisher || "Polygon",
       url: n.url,
       publishedAt: n.publishedAt,
+      summary: n.description,
       description: n.description,
       tickers: n.tickers,
       sentiment: n.sentiment,
       image: n.imageUrl,
+      category: "news",
       origin: "polygon",
     })
   }
@@ -60,9 +103,11 @@ export async function GET(req: Request) {
       source: n.source,
       url: n.url,
       publishedAt: new Date(n.datetime * 1000).toISOString(),
+      summary: n.summary,
       description: n.summary,
       tickers: n.related ? n.related.split(",").slice(0, 5) : [],
       image: n.image,
+      category: "news",
       origin: "finnhub",
     })
   }
@@ -73,36 +118,62 @@ export async function GET(req: Request) {
       source: n.source,
       url: n.url,
       publishedAt: new Date(n.datetime * 1000).toISOString(),
+      summary: n.summary,
       description: n.summary,
       tickers: n.related ? n.related.split(",").slice(0, 5) : [],
       image: n.image,
+      category: "ma",
       origin: "finnhub",
     })
   }
-  for (const r of tavily.results) {
+  for (const r of tav.results) {
     items.push({
       id: `t-${r.url}`,
       title: r.title,
-      source: new URL(r.url).hostname.replace(/^www\./, ""),
+      source: (() => {
+        try {
+          return new URL(r.url).hostname.replace(/^www\./, "")
+        } catch {
+          return "web"
+        }
+      })(),
       url: r.url,
       publishedAt: r.published_date ?? new Date().toISOString(),
+      summary: r.content?.slice(0, 280),
       description: r.content?.slice(0, 280),
+      category: category === "all" ? "news" : category,
       origin: "tavily",
     })
   }
 
-  // Dedupe by URL and sort desc by time
+  // Filter by category if set (simple keyword matching)
+  let filtered = items
+  if (category !== "all") {
+    const keywords: Record<string, RegExp> = {
+      ma: /merg|acqui|takeover|buyout|deal/i,
+      analyst: /analyst|upgrade|downgrade|price\s+target|rating|outperform|underperform/i,
+      social: /reddit|stocktwits|twitter|x\.com|social|retail/i,
+      macro: /fed|inflation|rates|geopolit|china|tariff|regulat|macro/i,
+      news: /./,
+    }
+    const re = keywords[category]
+    if (re) filtered = items.filter((i) => re.test(`${i.title} ${i.source} ${i.description ?? ""}`))
+  }
+
+  // Dedupe by URL, sort desc
   const seen = new Set<string>()
-  const deduped = items.filter((i) => {
+  const deduped = filtered.filter((i) => {
     if (seen.has(i.url)) return false
     seen.add(i.url)
     return true
   })
   deduped.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
 
+  const out = deduped.slice(0, 40)
   return NextResponse.json({
-    items: deduped.slice(0, 40),
-    summary: tavily.answer ?? null,
+    data: out,
+    items: out,
+    summary: tav.answer ?? null,
     updatedAt: new Date().toISOString(),
   })
 }

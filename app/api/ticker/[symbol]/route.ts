@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server"
-import { polygon } from "@/lib/polygon"
-import { finnhub } from "@/lib/finnhub"
+import { getSnapshot, getAggregates, getTickerDetails } from "@/lib/polygon"
+import {
+  getCompanyProfile,
+  getBasicFinancials,
+  getRecommendationTrends,
+  getPriceTarget,
+  getInsiderSentiment,
+} from "@/lib/finnhub"
 
 export const dynamic = "force-dynamic"
 
@@ -8,36 +14,58 @@ export async function GET(_req: Request, { params }: { params: Promise<{ symbol:
   const { symbol } = await params
   const sym = symbol.toUpperCase()
 
-  const [snapshot, profile, metrics, candles, recommendations, earnings] = await Promise.all([
-    polygon.snapshot(sym).catch(() => null),
-    finnhub.profile(sym).catch(() => null),
-    finnhub.basicFinancials(sym).catch(() => null),
-    polygon.aggregates(sym, 90).catch(() => []),
-    finnhub.recommendations(sym).catch(() => []),
-    finnhub.earnings(sym).catch(() => []),
+  const [snapshot, profile, metrics, candles, recommendations, priceTarget, insider, details] = await Promise.all([
+    getSnapshot(sym),
+    getCompanyProfile(sym),
+    getBasicFinancials(sym),
+    getAggregates(sym, 90),
+    getRecommendationTrends(sym),
+    getPriceTarget(sym),
+    getInsiderSentiment(sym),
+    getTickerDetails(sym),
   ])
 
-  // Simple technical indicators
-  const closes = candles.map((c) => c.c)
+  const closes = candles.map((c) => c.close)
+  const volumes = candles.map((c) => c.volume)
+
   const sma20 = sma(closes, 20)
   const sma50 = sma(closes, 50)
   const rsi14 = rsi(closes, 14)
-  const volumes = candles.map((c) => c.v)
   const avgVol = volumes.length ? volumes.reduce((a, b) => a + b, 0) / volumes.length : null
   const latestVol = volumes[volumes.length - 1] ?? null
   const volumeRatio = latestVol && avgVol ? latestVol / avgVol : null
 
-  // Momentum
-  const momentum5 = closes.length > 5 ? (closes[closes.length - 1] / closes[closes.length - 6] - 1) * 100 : null
+  const momentum5 =
+    closes.length > 5 ? (closes[closes.length - 1] / closes[closes.length - 6] - 1) * 100 : null
   const momentum20 =
     closes.length > 20 ? (closes[closes.length - 1] / closes[closes.length - 21] - 1) * 100 : null
+
+  // Chart data in both shapes for back-compat
+  const chartCandles = candles.map((c) => ({
+    t: new Date(c.date).getTime(),
+    c: c.close,
+    date: c.date,
+    open: c.open,
+    high: c.high,
+    low: c.low,
+    close: c.close,
+    volume: c.volume,
+  }))
 
   return NextResponse.json({
     symbol: sym,
     snapshot,
-    profile,
-    metrics: metrics?.metric ?? null,
-    candles,
+    profile: profile
+      ? {
+          ...profile,
+          // back-compat aliases for older components
+          finnhubIndustry: profile.industry,
+          marketCapitalization: profile.marketCap,
+        }
+      : null,
+    details,
+    metrics,
+    candles: chartCandles,
     technicals: {
       sma20: sma20[sma20.length - 1] ?? null,
       sma50: sma50[sma50.length - 1] ?? null,
@@ -49,7 +77,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ symbol:
       momentum20,
     },
     recommendations,
-    earnings,
+    priceTarget,
+    insider,
   })
 }
 

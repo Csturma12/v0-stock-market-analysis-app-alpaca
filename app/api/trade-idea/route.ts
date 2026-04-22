@@ -1,8 +1,8 @@
 import { generateText, Output } from "ai"
 import { z } from "zod"
-import { polygon } from "@/lib/polygon"
-import { finnhub } from "@/lib/finnhub"
-import { tavily } from "@/lib/tavily"
+import { getSnapshot, getAggregates } from "@/lib/polygon"
+import { getCompanyProfile, getBasicFinancials, getRecommendationTrends, getCompanyNews } from "@/lib/finnhub"
+import { tavilySearch } from "@/lib/tavily"
 import { createClient } from "@/lib/supabase/server"
 
 export const maxDuration = 60
@@ -24,44 +24,41 @@ export async function POST(req: Request) {
   const { symbol } = await req.json()
   const sym = String(symbol).toUpperCase()
 
-  // Gather all context in parallel
-  const [snapshot, profile, metrics, candles, recs, webResults, news, pastIdeas] = await Promise.all([
-    polygon.snapshot(sym).catch(() => null),
-    finnhub.profile(sym).catch(() => null),
-    finnhub.basicFinancials(sym).catch(() => null),
-    polygon.aggregates(sym, 30).catch(() => []),
-    finnhub.recommendations(sym).catch(() => []),
-    tavily
-      .search(
-        `${sym} stock analysis news ${new Date().toLocaleDateString()} catalysts earnings analyst rating geopolitical`,
-        5,
-      )
-      .catch(() => null),
-    finnhub.companyNews(sym, 14).catch(() => []),
-    getPastIdeas(sym).catch(() => []),
+  const [snapshot, profile, metrics, candles, recs, web, news, pastIdeas] = await Promise.all([
+    getSnapshot(sym),
+    getCompanyProfile(sym),
+    getBasicFinancials(sym),
+    getAggregates(sym, 30),
+    getRecommendationTrends(sym),
+    tavilySearch(
+      `${sym} stock analysis ${new Date().toLocaleDateString()} catalysts earnings analyst rating merger acquisition geopolitical`,
+      { topic: "news", maxResults: 6, days: 14 },
+    ),
+    getCompanyNews(sym, 14),
+    getPastIdeas(sym),
   ])
 
-  const recentCloses = candles.slice(-20).map((c) => c.c)
+  const recentCloses = candles.slice(-20).map((c) => c.close)
   const change20 = recentCloses.length > 1 ? (recentCloses.at(-1)! / recentCloses[0] - 1) * 100 : 0
 
   const context = `
 TICKER: ${sym} — ${profile?.name ?? ""}
-Exchange: ${profile?.exchange ?? "—"} | Industry: ${profile?.finnhubIndustry ?? "—"}
+Exchange: ${profile?.exchange ?? "—"} | Industry: ${profile?.industry ?? "—"}
 Price: $${snapshot?.price ?? "—"} | Day: ${snapshot?.changePct?.toFixed(2) ?? "—"}% | 20d: ${change20.toFixed(2)}%
 
 KEY FUNDAMENTALS:
 ${JSON.stringify(
   {
-    peTTM: metrics?.metric?.peTTM,
-    psTTM: metrics?.metric?.psTTM,
-    revGrowth: metrics?.metric?.revenueGrowthTTMYoy,
-    epsGrowth: metrics?.metric?.epsGrowthTTMYoy,
-    netMargin: metrics?.metric?.netProfitMarginTTM,
-    roe: metrics?.metric?.roeTTM,
-    debtEquity: metrics?.metric?.["totalDebt/totalEquityAnnual"],
-    beta: metrics?.metric?.beta,
-    hi52: metrics?.metric?.["52WeekHigh"],
-    lo52: metrics?.metric?.["52WeekLow"],
+    peTTM: metrics?.peTTM,
+    psTTM: metrics?.psTTM,
+    revGrowth: metrics?.revenueGrowthTTMYoy,
+    epsGrowth: metrics?.epsGrowthTTMYoy,
+    netMargin: metrics?.netProfitMarginTTM,
+    roe: metrics?.roeTTM,
+    debtEquity: metrics?.["totalDebt/totalEquityAnnual"],
+    beta: metrics?.beta,
+    hi52: metrics?.["52WeekHigh"],
+    lo52: metrics?.["52WeekLow"],
   },
   null,
   2,
@@ -71,11 +68,11 @@ ANALYST CONSENSUS (latest):
 ${JSON.stringify(recs[0] ?? {}, null, 2)}
 
 RECENT HEADLINES (Finnhub):
-${news.slice(0, 10).map((n: any) => `- ${n.headline} (${n.source})`).join("\n")}
+${news.slice(0, 10).map((n) => `- ${n.headline} (${n.source})`).join("\n")}
 
 WEB SEARCH (Tavily):
-${webResults?.answer ?? ""}
-${(webResults?.results ?? []).slice(0, 5).map((r: any) => `- ${r.title}: ${r.content?.slice(0, 200)}`).join("\n")}
+${web.answer ?? ""}
+${web.results.slice(0, 5).map((r) => `- ${r.title}: ${r.content?.slice(0, 200)}`).join("\n")}
 
 PAST TRADE IDEAS ON THIS TICKER (for learning — avoid repeating mistakes):
 ${pastIdeas.map((p: any) => `- ${p.created_at}: ${p.direction} @ ${p.entry} → outcome: ${p.outcome ?? "open"} (${p.pnl_pct ?? "—"}%). Thesis: ${p.thesis?.slice(0, 150)}`).join("\n") || "(no prior ideas)"}
@@ -93,7 +90,6 @@ Entry/stop/target must be real price levels near the current price. Use 1R:2R mi
 
     const idea = experimental_output
 
-    // Persist to learning memory
     await persistIdea(sym, idea, context.slice(0, 8000))
 
     return Response.json({ idea })

@@ -24,6 +24,10 @@ export function fmtCompact(n: number | null | undefined) {
   return new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 2 }).format(n)
 }
 
+// Aliases used by ticker components
+export const fmtPrice = fmtUsd
+export const fmtVolume = fmtCompact
+
 export function moveClass(change: number | null | undefined) {
   if (change == null || !Number.isFinite(change) || Math.abs(change) < 0.01) return "text-muted-foreground"
   return change > 0 ? "text-primary" : "text-destructive"

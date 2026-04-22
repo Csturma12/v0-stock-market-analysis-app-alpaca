@@ -14,6 +14,19 @@ export default async function SectorPage({ params }: { params: Promise<{ id: str
   const sector = SECTORS.find((s) => s.id === id)
   if (!sector) notFound()
 
+  // Top tickers across the sector: first N across all sub-industries, de-duped.
+  const seen = new Set<string>()
+  const trending: string[] = []
+  for (const sub of sector.subIndustries) {
+    for (const t of sub.tickers) {
+      if (seen.has(t)) continue
+      seen.add(t)
+      trending.push(t)
+      if (trending.length >= 15) break
+    }
+    if (trending.length >= 15) break
+  }
+
   return (
     <main className="mx-auto max-w-7xl px-4 py-8 md:px-6 md:py-10">
       <Link
@@ -39,11 +52,9 @@ export default async function SectorPage({ params }: { params: Promise<{ id: str
       <section className="mt-10">
         <div className="mb-4 flex items-baseline justify-between">
           <h2 className="text-xl font-semibold">Trending Tickers</h2>
-          <span className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
-            Live snapshot
-          </span>
+          <span className="font-mono text-xs uppercase tracking-widest text-muted-foreground">Live snapshot</span>
         </div>
-        <TrendingTickers tickers={sector.trending} />
+        <TrendingTickers tickers={trending} />
       </section>
 
       <section className="mt-10">
@@ -53,7 +64,7 @@ export default async function SectorPage({ params }: { params: Promise<{ id: str
             Polygon + Finnhub + Tavily
           </span>
         </div>
-        <NewsFeed sectorId={sector.id} tickers={sector.trending.slice(0, 8)} />
+        <NewsFeed sectorId={sector.id} tickers={trending.slice(0, 8)} />
       </section>
     </main>
   )
