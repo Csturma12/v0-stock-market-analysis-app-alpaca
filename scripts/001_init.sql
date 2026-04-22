@@ -92,6 +92,13 @@ alter table public.learning_memory enable row level security;
 alter table public.watchlist enable row level security;
 alter table public.analysis_cache enable row level security;
 
+drop policy if exists "allow_all_settings" on public.trading_settings;
+drop policy if exists "allow_all_ideas" on public.trade_ideas;
+drop policy if exists "allow_all_trades" on public.trades;
+drop policy if exists "allow_all_memory" on public.learning_memory;
+drop policy if exists "allow_all_watchlist" on public.watchlist;
+drop policy if exists "allow_all_cache" on public.analysis_cache;
+
 create policy "allow_all_settings" on public.trading_settings for all using (true) with check (true);
 create policy "allow_all_ideas" on public.trade_ideas for all using (true) with check (true);
 create policy "allow_all_trades" on public.trades for all using (true) with check (true);
