@@ -1,32 +1,18 @@
-import type { Metadata } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
-import { Analytics } from '@vercel/analytics/next'
-import './globals.css'
+import type { Metadata } from "next"
+import { Geist, Geist_Mono } from "next/font/google"
+import { Analytics } from "@vercel/analytics/next"
+import { Toaster } from "@/components/ui/sonner"
+import { SiteNav } from "@/components/site-nav"
+import "./globals.css"
 
-const _geist = Geist({ subsets: ["latin"] });
-const _geistMono = Geist_Mono({ subsets: ["latin"] });
+const _geist = Geist({ subsets: ["latin"] })
+const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: 'v0 App',
-  description: 'Created with v0',
-  generator: 'v0.app',
-  icons: {
-    icon: [
-      {
-        url: '/icon-light-32x32.png',
-        media: '(prefers-color-scheme: light)',
-      },
-      {
-        url: '/icon-dark-32x32.png',
-        media: '(prefers-color-scheme: dark)',
-      },
-      {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
-      },
-    ],
-    apple: '/apple-icon.png',
-  },
+  title: "Market Intel — Sector & Ticker Deep Research",
+  description:
+    "Autonomous market research and paper-trading terminal. Sector heatmap, AI analysis, news aggregation, and Alpaca execution.",
+  generator: "v0.app",
 }
 
 export default function RootLayout({
@@ -35,10 +21,12 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
-      <body className="font-sans antialiased">
-        {children}
-        {process.env.NODE_ENV === 'production' && <Analytics />}
+    <html lang="en" className="dark bg-background">
+      <body className="font-sans antialiased min-h-screen bg-background text-foreground">
+        <SiteNav />
+        <main className="min-h-[calc(100vh-3.5rem)]">{children}</main>
+        <Toaster theme="dark" />
+        {process.env.NODE_ENV === "production" && <Analytics />}
       </body>
     </html>
   )
