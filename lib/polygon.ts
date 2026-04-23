@@ -97,6 +97,46 @@ export async function getAggregates(ticker: string, days = 90) {
   }
 }
 
+export type PolygonTimespan = "minute" | "hour" | "day" | "week" | "month"
+
+export type TFCandle = {
+  t: number
+  open: number
+  high: number
+  low: number
+  close: number
+  volume: number
+}
+
+// Flexible OHLC fetch: any multiplier + timespan + explicit date window.
+export async function getAggregatesRange(
+  ticker: string,
+  multiplier: number,
+  timespan: PolygonTimespan,
+  fromDate: Date,
+  toDate: Date,
+): Promise<TFCandle[]> {
+  const fmt = (d: Date) => d.toISOString().slice(0, 10)
+  try {
+    const data = await poly<{ results?: Array<{ t: number; o: number; h: number; l: number; c: number; v: number }> }>(
+      `/v2/aggs/ticker/${ticker}/range/${multiplier}/${timespan}/${fmt(fromDate)}/${fmt(toDate)}`,
+      { adjusted: "true", sort: "asc", limit: 50000 },
+    )
+    return (
+      data.results?.map((r) => ({
+        t: r.t,
+        open: r.o,
+        high: r.h,
+        low: r.l,
+        close: r.c,
+        volume: r.v,
+      })) ?? []
+    )
+  } catch {
+    return []
+  }
+}
+
 export async function getTickerNews(ticker: string, limit = 20) {
   try {
     const data = await poly<{ results?: any[] }>(`/v2/reference/news`, { "ticker": ticker, limit, order: "desc" })
