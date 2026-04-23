@@ -2,8 +2,9 @@
 const BASE = "https://paper-api.alpaca.markets"
 
 function headers() {
-  const id = process.env.ALPACA_API_KEY_ID
-  const secret = process.env.ALPACA_API_SECRET_KEY
+  // Accept either naming convention
+  const id = process.env.ALPACA_API_KEY_ID ?? process.env.ALPACA_API_KEY
+  const secret = process.env.ALPACA_API_SECRET_KEY ?? process.env.ALPACA_SECRET_API_KEY
   if (!id || !secret) throw new Error("ALPACA credentials are not set")
   return {
     "APCA-API-KEY-ID": id,
