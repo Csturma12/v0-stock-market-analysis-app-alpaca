@@ -3,7 +3,7 @@ import { z } from "zod"
 import { getSnapshot, getAggregates } from "@/lib/polygon"
 import { getCompanyProfile, getBasicFinancials, getRecommendationTrends, getCompanyNews } from "@/lib/finnhub"
 import { tavilySearch } from "@/lib/tavily"
-import { getDarkPoolSummary, getOptionsFlow, getGreekExposure } from "@/lib/unusual-whales"
+import { getUnusualWhalesSummary } from "@/lib/unusual-whales"
 import { createClient } from "@/lib/supabase/server"
 
 export const maxDuration = 60
@@ -25,23 +25,20 @@ export async function POST(req: Request) {
   const { symbol } = await req.json()
   const sym = String(symbol).toUpperCase()
 
-  const [snapshot, profile, metrics, candles, recs, web, news, darkPool, optionsFlow, greeks, pastIdeas] =
-    await Promise.all([
-      getSnapshot(sym),
-      getCompanyProfile(sym),
-      getBasicFinancials(sym),
-      getAggregates(sym, 30),
-      getRecommendationTrends(sym),
-      tavilySearch(
-        `${sym} stock analysis ${new Date().toLocaleDateString()} catalysts earnings analyst rating merger acquisition geopolitical`,
-        { topic: "news", maxResults: 6, days: 14 },
-      ),
-      getCompanyNews(sym, 14),
-      getDarkPoolSummary(sym),
-      getOptionsFlow(sym, 10),
-      getGreekExposure(sym),
-      getPastIdeas(sym),
-    ])
+  const [snapshot, profile, metrics, candles, recs, web, news, uw, pastIdeas] = await Promise.all([
+    getSnapshot(sym),
+    getCompanyProfile(sym),
+    getBasicFinancials(sym),
+    getAggregates(sym, 30),
+    getRecommendationTrends(sym),
+    tavilySearch(
+      `${sym} stock analysis ${new Date().toLocaleDateString()} catalysts earnings analyst rating merger acquisition geopolitical`,
+      { topic: "news", maxResults: 6, days: 14 },
+    ),
+    getCompanyNews(sym, 14),
+    getUnusualWhalesSummary(sym),
+    getPastIdeas(sym),
+  ])
 
   const recentCloses = candles.slice(-20).map((c) => c.close)
   const change20 = recentCloses.length > 1 ? (recentCloses.at(-1)! / recentCloses[0] - 1) * 100 : 0
@@ -79,31 +76,42 @@ WEB SEARCH (Tavily):
 ${web.answer ?? ""}
 ${web.results.slice(0, 5).map((r) => `- ${r.title}: ${r.content?.slice(0, 200)}`).join("\n")}
 
-INSTITUTIONAL FLOW — DARK POOL (Unusual Whales):
+INSTITUTIONAL FLOW — DARK POOL (Unusual Whales, last ${uw?.darkPool.prints.length ?? 0} prints):
 ${
-  darkPool
-    ? `Total dark pool volume: ${darkPool.totalVolume?.toLocaleString() ?? "—"} shares
-Dark pool % of total: ${darkPool.darkPoolPct?.toFixed(1) ?? "—"}%
-Notional value: $${darkPool.notional?.toLocaleString() ?? "—"}
-Bias: ${darkPool.bias ?? "neutral"} (large prints: ${darkPool.largePrints ?? 0})`
+  uw
+    ? `Total dark pool size: ${uw.darkPool.totalSize.toLocaleString()} shares
+Total dark pool premium: $${uw.darkPool.totalPremium.toLocaleString()}
+Largest print: ${
+        uw.darkPool.largestPrint
+          ? `${uw.darkPool.largestPrint.size.toLocaleString()} shares @ $${uw.darkPool.largestPrint.price} ($${uw.darkPool.largestPrint.premium.toLocaleString()})`
+          : "—"
+      }`
     : "(no dark pool data)"
 }
 
-OPTIONS FLOW (Unusual Whales — last ${optionsFlow?.length ?? 0} significant trades):
+OPTIONS FLOW (Unusual Whales — ${uw?.flow.alerts.length ?? 0} significant trades):
 ${
-  optionsFlow
-    ?.slice(0, 8)
-    .map(
-      (t: any) =>
-        `- ${t.side ?? "?"} ${t.type ?? "?"} $${t.strike ?? "?"} ${t.expiry ?? ""} | size: ${t.size ?? "?"} | premium: $${t.premium?.toLocaleString() ?? "?"} | ${t.sentiment ?? ""}`,
-    )
-    .join("\n") ?? "(no unusual options flow)"
+  uw && uw.flow.alerts.length > 0
+    ? `Call premium: $${uw.flow.callPremium.toLocaleString()} | Put premium: $${uw.flow.putPremium.toLocaleString()}
+Call/Put premium ratio: ${uw.flow.callPutRatio === Number.POSITIVE_INFINITY ? "∞ (calls only)" : uw.flow.callPutRatio.toFixed(2)}
+Bullish alerts: ${uw.flow.bullishCount} | Bearish alerts: ${uw.flow.bearishCount}
+
+Top alerts:
+${uw.flow.alerts
+  .slice(0, 8)
+  .map(
+    (t) =>
+      `- ${t.sentiment.toUpperCase()} ${t.type.toUpperCase()} $${t.strike} ${t.expiry} | side: ${t.side} | size: ${t.volume} | OI: ${t.openInterest} | premium: $${t.premium.toLocaleString()}`,
+  )
+  .join("\n")}`
+    : "(no unusual options flow)"
 }
 
 GREEK EXPOSURE (dealer positioning):
 ${
-  greeks
-    ? `Net gamma: ${greeks.netGamma ?? "—"} | Net delta: ${greeks.netDelta ?? "—"} | Call/Put ratio: ${greeks.callPutRatio?.toFixed(2) ?? "—"}`
+  uw?.greekExposure
+    ? `Call gamma: ${uw.greekExposure.callGamma ?? "—"} | Put gamma: ${uw.greekExposure.putGamma ?? "—"}
+Call delta: ${uw.greekExposure.callDelta ?? "—"} | Put delta: ${uw.greekExposure.putDelta ?? "—"}`
     : "(no greek data)"
 }
 
