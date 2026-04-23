@@ -141,12 +141,29 @@ export function TradeIdeaPanel({ symbol }: { symbol: string }) {
             </div>
           </div>
 
-          <a
-            href="/trading"
-            className="inline-flex w-fit items-center gap-2 rounded-md border border-primary/50 bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-primary/20"
-          >
-            Route to paper trading panel →
-          </a>
+          {(() => {
+            const side = idea.direction === "short" ? "sell" : "buy"
+            // Default position size: $500 notional, capped by reasonable share count
+            const suggestedQty = Math.max(1, Math.floor(500 / Math.max(idea.entry, 1)))
+            const params = new URLSearchParams({
+              symbol,
+              side,
+              qty: String(suggestedQty),
+              type: "limit",
+              limit: idea.entry.toFixed(2),
+              stop: idea.stopLoss.toFixed(2),
+              target: idea.target.toFixed(2),
+              thesis: idea.thesis.slice(0, 180),
+            })
+            return (
+              <a
+                href={`/trading?${params.toString()}`}
+                className="inline-flex w-fit items-center gap-2 rounded-md border border-primary/50 bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-primary/20"
+              >
+                Stage {side.toUpperCase()} {suggestedQty} {symbol} @ ${idea.entry.toFixed(2)} →
+              </a>
+            )
+          })()}
         </div>
       )}
     </div>
