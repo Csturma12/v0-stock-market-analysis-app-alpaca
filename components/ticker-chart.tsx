@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import useSWR from "swr"
 import {
   Bar,
@@ -15,22 +15,33 @@ import {
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
-type Timeframe = "15m" | "1h" | "4h" | "1d"
+type RangeKey = "1D" | "1M" | "YTD" | "5Y"
+type IntervalKey = "15m" | "1h" | "4h" | "1d" | "1w" | "1mo"
 
-type TFOption = {
-  value: Timeframe
+type RangeSpec = {
+  key: RangeKey
   label: string
   title: string
-  windowLabel: string
-  refresh: number // ms
+  intervals: IntervalKey[]
+  defaultInterval: IntervalKey
+  refreshMs: number
 }
 
-const TIMEFRAMES: TFOption[] = [
-  { value: "15m", label: "15m", title: "15-Minute", windowLabel: "Last 7 days", refresh: 30_000 },
-  { value: "1h", label: "1H", title: "Hourly", windowLabel: "Last 30 days", refresh: 60_000 },
-  { value: "4h", label: "4H", title: "4-Hour", windowLabel: "Last 120 days", refresh: 60_000 },
-  { value: "1d", label: "Daily", title: "Daily", windowLabel: "Last year", refresh: 60_000 },
+const RANGES: RangeSpec[] = [
+  { key: "1D", label: "1 Day", title: "Intraday", intervals: ["15m", "1h", "4h"], defaultInterval: "15m", refreshMs: 30_000 },
+  { key: "1M", label: "1 Month", title: "1 Month", intervals: ["1h", "4h", "1d"], defaultInterval: "1d", refreshMs: 60_000 },
+  { key: "YTD", label: "YTD", title: "Year to Date", intervals: ["4h", "1d", "1w"], defaultInterval: "1d", refreshMs: 60_000 },
+  { key: "5Y", label: "5 Year", title: "5 Years", intervals: ["1d", "1w", "1mo"], defaultInterval: "1w", refreshMs: 300_000 },
 ]
+
+const INTERVAL_LABELS: Record<IntervalKey, string> = {
+  "15m": "15m",
+  "1h": "1H",
+  "4h": "4H",
+  "1d": "Daily",
+  "1w": "Weekly",
+  "1mo": "Monthly",
+}
 
 type Candle = {
   t: number
@@ -43,6 +54,7 @@ type Candle = {
 
 type ChartDatum = {
   label: string
+  fullLabel: string
   open: number
   high: number
   low: number
@@ -66,21 +78,37 @@ function sma(values: number[], period: number): (number | null)[] {
   return out
 }
 
-function formatLabel(t: number, tf: Timeframe) {
+function formatLabel(t: number, interval: IntervalKey): { label: string; full: string } {
   const d = new Date(t)
-  if (tf === "15m" || tf === "1h") {
-    return d.toLocaleString("en-US", {
-      month: "short",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: false,
-    })
+  if (interval === "15m" || interval === "1h") {
+    return {
+      label: d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", hour12: false }),
+      full: d.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }),
+    }
   }
-  if (tf === "4h") {
-    return d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", hour12: false })
+  if (interval === "4h") {
+    return {
+      label: d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", hour12: false }),
+      full: d.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric" }),
+    }
   }
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+  if (interval === "1d") {
+    return {
+      label: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      full: d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+    }
+  }
+  if (interval === "1w") {
+    return {
+      label: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      full: `Week of ${d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`,
+    }
+  }
+  // 1mo
+  return {
+    label: d.toLocaleDateString("en-US", { month: "short", year: "2-digit" }),
+    full: d.toLocaleDateString("en-US", { month: "long", year: "numeric" }),
+  }
 }
 
 function Candlestick(props: any) {
@@ -92,7 +120,6 @@ function Candlestick(props: any) {
   if (range <= 0) return null
 
   const color = up ? "var(--color-bull)" : "var(--color-bear)"
-
   const wickX = x + width / 2
   const wickTop = y
   const wickBottom = y + height
@@ -111,15 +138,7 @@ function Candlestick(props: any) {
   return (
     <g>
       <line x1={wickX} x2={wickX} y1={wickTop} y2={wickBottom} stroke={color} strokeWidth={1} />
-      <rect
-        x={bodyX}
-        y={bodyTop}
-        width={bodyWidth}
-        height={bodyHeight}
-        fill={color}
-        stroke={color}
-        strokeWidth={1}
-      />
+      <rect x={bodyX} y={bodyTop} width={bodyWidth} height={bodyHeight} fill={color} stroke={color} strokeWidth={1} />
     </g>
   )
 }
@@ -132,7 +151,7 @@ function CandleTooltip({ active, payload }: any) {
   const up = d.close >= d.open
   return (
     <div className="rounded-md border border-border bg-card px-3 py-2 text-xs shadow-md">
-      <div className="mb-1 font-mono text-muted-foreground">{d.label}</div>
+      <div className="mb-1 font-mono text-muted-foreground">{d.fullLabel}</div>
       <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 font-mono">
         <span className="text-muted-foreground">O</span>
         <span>${d.open.toFixed(2)}</span>
@@ -158,81 +177,124 @@ function CandleTooltip({ active, payload }: any) {
 }
 
 export function TickerChart({ symbol }: { symbol: string }) {
-  const [tf, setTf] = useState<Timeframe>("1d")
-  const active = TIMEFRAMES.find((t) => t.value === tf)!
+  const [rangeKey, setRangeKey] = useState<RangeKey>("1M")
+  const [intervalKey, setIntervalKey] = useState<IntervalKey>("1d")
+
+  const range = RANGES.find((r) => r.key === rangeKey)!
+  // If the current interval isn't valid for this range, fall back to the range's default.
+  const effectiveInterval: IntervalKey = range.intervals.includes(intervalKey) ? intervalKey : range.defaultInterval
 
   const { data, isLoading } = useSWR<{ candles: Candle[] }>(
-    `/api/ticker/${symbol}/candles?tf=${tf}`,
+    `/api/ticker/${symbol}/candles?range=${rangeKey}&interval=${effectiveInterval}`,
     fetcher,
-    { refreshInterval: active.refresh, revalidateOnFocus: false },
+    { refreshInterval: range.refreshMs, revalidateOnFocus: false },
   )
   const candles: Candle[] = data?.candles ?? []
 
-  const closes = candles.map((c) => c.close)
-  const sma20Series = sma(closes, 20)
+  const chartData: ChartDatum[] = useMemo(() => {
+    const closes = candles.map((c) => c.close)
+    const sma20Series = sma(closes, 20)
+    return candles.map((c, i) => {
+      const { label, full } = formatLabel(c.t, effectiveInterval)
+      return {
+        label,
+        fullLabel: full,
+        open: c.open,
+        high: c.high,
+        low: c.low,
+        close: c.close,
+        range: [c.low, c.high],
+        sma20: sma20Series[i],
+        up: c.close >= c.open,
+      }
+    })
+  }, [candles, effectiveInterval])
 
-  const chartData: ChartDatum[] = candles.map((c, i) => ({
-    label: formatLabel(c.t, tf),
-    open: c.open,
-    high: c.high,
-    low: c.low,
-    close: c.close,
-    range: [c.low, c.high],
-    sma20: sma20Series[i],
-    up: c.close >= c.open,
-  }))
+  function handleSelectRange(next: RangeSpec) {
+    setRangeKey(next.key)
+    // When the user changes range, if their current interval isn't valid here, switch to the range default.
+    if (!next.intervals.includes(intervalKey)) {
+      setIntervalKey(next.defaultInterval)
+    }
+  }
 
   return (
     <div className="rounded-lg border border-border bg-card p-5">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-baseline gap-3">
-          <h3 className="text-base font-semibold">
-            Price <span className="text-muted-foreground">· {active.title}</span>
-          </h3>
-          <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
-            {active.windowLabel}
+      <div className="mb-4 flex flex-col gap-3">
+        <div className="flex items-baseline justify-between">
+          <div className="flex items-baseline gap-3">
+            <h3 className="text-base font-semibold">
+              Price <span className="text-muted-foreground">· {range.title} · {INTERVAL_LABELS[effectiveInterval]}</span>
+            </h3>
+          </div>
+          <span className="font-mono text-xs uppercase tracking-widest text-muted-foreground">Polygon</span>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Range</span>
+          <div className="inline-flex items-center gap-0.5 rounded-md border border-border bg-muted/30 p-0.5">
+            {RANGES.map((r) => {
+              const active = r.key === rangeKey
+              return (
+                <button
+                  key={r.key}
+                  type="button"
+                  onClick={() => handleSelectRange(r)}
+                  aria-pressed={active}
+                  className={`rounded-sm px-2.5 py-1 font-mono text-[11px] uppercase tracking-wider transition-colors ${
+                    active
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  }`}
+                >
+                  {r.label}
+                </button>
+              )
+            })}
+          </div>
+
+          <span className="ml-2 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Interval</span>
+          <div className="inline-flex items-center gap-0.5 rounded-md border border-border bg-muted/30 p-0.5">
+            {range.intervals.map((iv) => {
+              const active = iv === effectiveInterval
+              return (
+                <button
+                  key={iv}
+                  type="button"
+                  onClick={() => setIntervalKey(iv)}
+                  aria-pressed={active}
+                  className={`rounded-sm px-2.5 py-1 font-mono text-[11px] uppercase tracking-wider transition-colors ${
+                    active
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  }`}
+                >
+                  {INTERVAL_LABELS[iv]}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-2 w-2 rounded-sm bg-[var(--color-bull)]" /> Up
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-2 w-2 rounded-sm bg-[var(--color-bear)]" /> Down
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-0.5 w-3 bg-foreground/70" /> SMA 20
           </span>
         </div>
-
-        <div className="inline-flex items-center gap-0.5 rounded-md border border-border bg-muted/30 p-0.5">
-          {TIMEFRAMES.map((t) => {
-            const isActive = t.value === tf
-            return (
-              <button
-                key={t.value}
-                type="button"
-                onClick={() => setTf(t.value)}
-                aria-pressed={isActive}
-                className={`rounded-sm px-2.5 py-1 font-mono text-[11px] uppercase tracking-wider transition-colors ${
-                  isActive
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                }`}
-              >
-                {t.label}
-              </button>
-            )
-          })}
-        </div>
-      </div>
-
-      <div className="mb-3 flex items-center gap-3 text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block h-2 w-2 rounded-sm bg-[var(--color-bull)]" /> Up
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block h-2 w-2 rounded-sm bg-[var(--color-bear)]" /> Down
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block h-0.5 w-3 bg-foreground/70" /> SMA 20
-        </span>
-        <span className="ml-auto text-muted-foreground">Polygon</span>
       </div>
 
       <div className="h-80 w-full">
-        {chartData.length === 0 ? (
+        {isLoading && chartData.length === 0 ? (
+          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Loading chart…</div>
+        ) : chartData.length === 0 ? (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-            {isLoading ? "Loading chart…" : "No data for this timeframe"}
+            No data for this range/interval. Try a different selection.
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
@@ -243,7 +305,7 @@ export function TickerChart({ symbol }: { symbol: string }) {
                 tick={{ fill: "var(--color-muted-foreground)", fontSize: 11 }}
                 tickLine={false}
                 axisLine={false}
-                interval={Math.max(Math.floor(chartData.length / 6), 0)}
+                interval={Math.max(Math.floor(chartData.length / 7), 0)}
               />
               <YAxis
                 domain={["dataMin - 2", "dataMax + 2"]}
