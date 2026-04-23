@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { Suspense } from "react"
 import { ChevronLeft } from "lucide-react"
 import { TradingAccount } from "@/components/trading-account"
 import { TradingSettings } from "@/components/trading-settings"
@@ -43,7 +44,9 @@ export default function TradingPage() {
           <TradingPositions />
         </div>
         <div>
-          <TradingOrderForm />
+          <Suspense fallback={<div className="h-[500px] rounded-lg border border-border bg-card" />}>
+            <TradingOrderForm />
+          </Suspense>
         </div>
       </div>
     </main>
