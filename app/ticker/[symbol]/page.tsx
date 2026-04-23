@@ -6,6 +6,7 @@ import { TickerFundamentals } from "@/components/ticker-fundamentals"
 import { TickerTechnicals } from "@/components/ticker-technicals"
 import { TickerAnalystRatings } from "@/components/ticker-analyst-ratings"
 import { TickerNews } from "@/components/ticker-news"
+import { TickerDarkPool } from "@/components/ticker-dark-pool"
 import { TradeIdeaPanel } from "@/components/trade-idea-panel"
 
 export const dynamic = "force-dynamic"
@@ -33,6 +34,10 @@ export default async function TickerPage({ params }: { params: Promise<{ symbol:
         <div>
           <TickerTechnicals symbol={sym} />
         </div>
+      </div>
+
+      <div className="mt-8">
+        <TickerDarkPool symbol={sym} />
       </div>
 
       <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
