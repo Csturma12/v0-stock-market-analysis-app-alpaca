@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import useSWR from "swr"
 import {
   Bar,
@@ -14,9 +15,25 @@ import {
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
+type Timeframe = "15m" | "1h" | "4h" | "1d"
+
+type TFOption = {
+  value: Timeframe
+  label: string
+  title: string
+  windowLabel: string
+  refresh: number // ms
+}
+
+const TIMEFRAMES: TFOption[] = [
+  { value: "15m", label: "15m", title: "15-Minute", windowLabel: "Last 7 days", refresh: 30_000 },
+  { value: "1h", label: "1H", title: "Hourly", windowLabel: "Last 30 days", refresh: 60_000 },
+  { value: "4h", label: "4H", title: "4-Hour", windowLabel: "Last 120 days", refresh: 60_000 },
+  { value: "1d", label: "Daily", title: "Daily", windowLabel: "Last year", refresh: 60_000 },
+]
+
 type Candle = {
   t: number
-  date: string
   open: number
   high: number
   low: number
@@ -25,12 +42,11 @@ type Candle = {
 }
 
 type ChartDatum = {
-  date: string
+  label: string
   open: number
   high: number
   low: number
   close: number
-  // Range drives the Y scale so high/low are always in view
   range: [number, number]
   sma20: number | null
   up: boolean
@@ -50,12 +66,23 @@ function sma(values: number[], period: number): (number | null)[] {
   return out
 }
 
-/**
- * Custom shape for each candle. Receives x/y/width/height for the [low, high]
- * range bar, plus the full datum via payload. We draw:
- *  - A thin wick from high to low, centered on the bar
- *  - A rectangular body between open and close, colored by direction
- */
+function formatLabel(t: number, tf: Timeframe) {
+  const d = new Date(t)
+  if (tf === "15m" || tf === "1h") {
+    return d.toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: false,
+    })
+  }
+  if (tf === "4h") {
+    return d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", hour12: false })
+  }
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+}
+
 function Candlestick(props: any) {
   const { x, y, width, height, payload } = props
   if (!payload || height == null) return null
@@ -66,12 +93,10 @@ function Candlestick(props: any) {
 
   const color = up ? "var(--color-bull)" : "var(--color-bear)"
 
-  // Wick: vertical line, 1px wide, centered
   const wickX = x + width / 2
   const wickTop = y
   const wickBottom = y + height
 
-  // Body: map open/close onto the pixel range
   const pxPerUnit = height / range
   const bodyTopValue = Math.max(open, close)
   const bodyBottomValue = Math.min(open, close)
@@ -107,7 +132,7 @@ function CandleTooltip({ active, payload }: any) {
   const up = d.close >= d.open
   return (
     <div className="rounded-md border border-border bg-card px-3 py-2 text-xs shadow-md">
-      <div className="mb-1 font-mono text-muted-foreground">{d.date}</div>
+      <div className="mb-1 font-mono text-muted-foreground">{d.label}</div>
       <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 font-mono">
         <span className="text-muted-foreground">O</span>
         <span>${d.open.toFixed(2)}</span>
@@ -133,14 +158,21 @@ function CandleTooltip({ active, payload }: any) {
 }
 
 export function TickerChart({ symbol }: { symbol: string }) {
-  const { data } = useSWR(`/api/ticker/${symbol}`, fetcher, { refreshInterval: 60_000 })
+  const [tf, setTf] = useState<Timeframe>("1d")
+  const active = TIMEFRAMES.find((t) => t.value === tf)!
+
+  const { data, isLoading } = useSWR<{ candles: Candle[] }>(
+    `/api/ticker/${symbol}/candles?tf=${tf}`,
+    fetcher,
+    { refreshInterval: active.refresh, revalidateOnFocus: false },
+  )
   const candles: Candle[] = data?.candles ?? []
 
   const closes = candles.map((c) => c.close)
   const sma20Series = sma(closes, 20)
 
   const chartData: ChartDatum[] = candles.map((c, i) => ({
-    date: new Date(c.t).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    label: formatLabel(c.t, tf),
     open: c.open,
     high: c.high,
     low: c.low,
@@ -152,32 +184,62 @@ export function TickerChart({ symbol }: { symbol: string }) {
 
   return (
     <div className="rounded-lg border border-border bg-card p-5">
-      <div className="mb-4 flex items-baseline justify-between">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-baseline gap-3">
-          <h3 className="text-base font-semibold">Price · 90 days</h3>
-          <div className="flex items-center gap-3 text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
-            <span className="flex items-center gap-1.5">
-              <span className="inline-block h-2 w-2 rounded-sm bg-[var(--color-bull)]" /> Up
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="inline-block h-2 w-2 rounded-sm bg-[var(--color-bear)]" /> Down
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="inline-block h-0.5 w-3 bg-foreground/70" /> SMA 20
-            </span>
-          </div>
+          <h3 className="text-base font-semibold">
+            Price <span className="text-muted-foreground">· {active.title}</span>
+          </h3>
+          <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
+            {active.windowLabel}
+          </span>
         </div>
-        <span className="font-mono text-xs uppercase tracking-widest text-muted-foreground">Polygon</span>
+
+        <div className="inline-flex items-center gap-0.5 rounded-md border border-border bg-muted/30 p-0.5">
+          {TIMEFRAMES.map((t) => {
+            const isActive = t.value === tf
+            return (
+              <button
+                key={t.value}
+                type="button"
+                onClick={() => setTf(t.value)}
+                aria-pressed={isActive}
+                className={`rounded-sm px-2.5 py-1 font-mono text-[11px] uppercase tracking-wider transition-colors ${
+                  isActive
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                }`}
+              >
+                {t.label}
+              </button>
+            )
+          })}
+        </div>
       </div>
+
+      <div className="mb-3 flex items-center gap-3 text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-2 w-2 rounded-sm bg-[var(--color-bull)]" /> Up
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-2 w-2 rounded-sm bg-[var(--color-bear)]" /> Down
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-0.5 w-3 bg-foreground/70" /> SMA 20
+        </span>
+        <span className="ml-auto text-muted-foreground">Polygon</span>
+      </div>
+
       <div className="h-80 w-full">
         {chartData.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Loading chart…</div>
+          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+            {isLoading ? "Loading chart…" : "No data for this timeframe"}
+          </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={chartData} margin={{ top: 5, right: 5, left: 0, bottom: 0 }} barCategoryGap={1}>
               <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" vertical={false} />
               <XAxis
-                dataKey="date"
+                dataKey="label"
                 tick={{ fill: "var(--color-muted-foreground)", fontSize: 11 }}
                 tickLine={false}
                 axisLine={false}
@@ -192,10 +254,7 @@ export function TickerChart({ symbol }: { symbol: string }) {
                 tickFormatter={(v) => `$${Number(v).toFixed(0)}`}
               />
               <Tooltip content={<CandleTooltip />} cursor={{ stroke: "var(--color-border)", strokeWidth: 1 }} />
-              {/* Candlestick bars. dataKey "range" ([low, high]) drives the wick extent;
-                  the custom shape paints the wick + body using the datum. */}
               <Bar dataKey="range" shape={<Candlestick />} isAnimationActive={false} />
-              {/* Trend line */}
               <Line
                 type="monotone"
                 dataKey="sma20"

@@ -97,6 +97,51 @@ export async function getAggregates(ticker: string, days = 90) {
   }
 }
 
+export type Timeframe = "15m" | "1h" | "4h" | "1d"
+
+type TFSpec = { multiplier: number; timespan: "minute" | "hour" | "day"; lookbackDays: number; limit: number }
+
+const TF_MAP: Record<Timeframe, TFSpec> = {
+  "15m": { multiplier: 15, timespan: "minute", lookbackDays: 7, limit: 500 },
+  "1h": { multiplier: 1, timespan: "hour", lookbackDays: 30, limit: 500 },
+  "4h": { multiplier: 4, timespan: "hour", lookbackDays: 120, limit: 500 },
+  "1d": { multiplier: 1, timespan: "day", lookbackDays: 365, limit: 500 },
+}
+
+export type TFCandle = {
+  t: number
+  open: number
+  high: number
+  low: number
+  close: number
+  volume: number
+}
+
+export async function getAggregatesTF(ticker: string, tf: Timeframe): Promise<TFCandle[]> {
+  const spec = TF_MAP[tf]
+  const to = new Date()
+  const from = new Date(to.getTime() - spec.lookbackDays * 24 * 60 * 60 * 1000)
+  const fmt = (d: Date) => d.toISOString().slice(0, 10)
+  try {
+    const data = await poly<{ results?: Array<{ t: number; o: number; h: number; l: number; c: number; v: number }> }>(
+      `/v2/aggs/ticker/${ticker}/range/${spec.multiplier}/${spec.timespan}/${fmt(from)}/${fmt(to)}`,
+      { adjusted: "true", sort: "asc", limit: spec.limit },
+    )
+    return (
+      data.results?.map((r) => ({
+        t: r.t,
+        open: r.o,
+        high: r.h,
+        low: r.l,
+        close: r.c,
+        volume: r.v,
+      })) ?? []
+    )
+  } catch {
+    return []
+  }
+}
+
 export async function getTickerNews(ticker: string, limit = 20) {
   try {
     const data = await poly<{ results?: any[] }>(`/v2/reference/news`, { "ticker": ticker, limit, order: "desc" })
