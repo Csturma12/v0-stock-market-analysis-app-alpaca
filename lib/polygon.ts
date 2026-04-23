@@ -141,6 +141,42 @@ export async function getTickerDetails(ticker: string) {
   }
 }
 
+export type TickerSearchResult = {
+  ticker: string
+  name: string
+  market: string
+  primaryExchange: string
+  type: string
+  active: boolean
+}
+
+export async function searchTickers(query: string, limit = 10): Promise<TickerSearchResult[]> {
+  const q = query.trim()
+  if (!q) return []
+  try {
+    const data = await poly<{ results?: any[] }>(`/v3/reference/tickers`, {
+      search: q,
+      market: "stocks",
+      active: "true",
+      limit,
+      order: "desc",
+      sort: "ticker",
+    })
+    return (
+      data.results?.map((r) => ({
+        ticker: r.ticker,
+        name: r.name ?? "",
+        market: r.market ?? "",
+        primaryExchange: r.primary_exchange ?? "",
+        type: r.type ?? "",
+        active: !!r.active,
+      })) ?? []
+    )
+  } catch {
+    return []
+  }
+}
+
 // Batched snapshot for sector/sub-industry heatmaps. Uses the grouped daily endpoint when possible,
 // falls back to per-ticker snapshot calls. To stay under free-tier limits we serialize.
 export async function getSnapshotBatch(tickers: string[]) {
