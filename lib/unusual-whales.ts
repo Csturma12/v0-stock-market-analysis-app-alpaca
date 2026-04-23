@@ -5,18 +5,21 @@ function headers() {
   if (!key) throw new Error("UNUSUAL_WHALES_API_KEY is not set")
   return {
     Authorization: `Bearer ${key}`,
+    "UW-CLIENT-API-ID": "100001",
     Accept: "application/json",
   }
 }
 
 async function uwFetch<T>(path: string): Promise<T | null> {
   try {
-    const res = await fetch(`${BASE}${path}`, {
+    const url = `${BASE}${path}`
+    const res = await fetch(url, {
       headers: headers(),
       next: { revalidate: 60 },
     })
     if (!res.ok) {
-      console.log("[v0] UW fetch failed", path, res.status)
+      const body = await res.text().catch(() => "")
+      console.log("[v0] UW fetch failed", path, res.status, body.slice(0, 200))
       return null
     }
     return (await res.json()) as T
@@ -63,20 +66,20 @@ export type UWSummary = {
     bearishCount: number
   }
   greekExposure: {
-    callDelta: number | null
-    putDelta: number | null
     callGamma: number | null
     putGamma: number | null
+    callDelta: number | null
+    putDelta: number | null
   } | null
 }
 
 export async function getUnusualWhalesSummary(symbol: string): Promise<UWSummary | null> {
   const sym = symbol.toUpperCase()
 
-  const [darkPoolRes, flowRes, greeksRes] = await Promise.all([
+  const [darkPoolRes, flowRes, gexRes] = await Promise.all([
     uwFetch<any>(`/darkpool/${sym}?limit=50`),
-    uwFetch<any>(`/stock/${sym}/flow-alerts?limit=50`),
-    uwFetch<any>(`/stock/${sym}/greek-exposure`),
+    uwFetch<any>(`/option-trades/flow-alerts?ticker_symbol=${sym}&limit=50`),
+    uwFetch<any>(`/stock/${sym}/greek-exposure/strike`),
   ])
 
   const prints: DarkPoolPrint[] = (darkPoolRes?.data ?? []).map((d: any) => ({
@@ -95,23 +98,26 @@ export async function getUnusualWhalesSummary(symbol: string): Promise<UWSummary
   )
 
   const alerts: FlowAlert[] = (flowRes?.data ?? []).map((a: any) => {
-    const type = (a.option_type ?? a.type ?? "").toLowerCase() === "put" ? "put" : "call"
-    const side = (a.side ?? "").toLowerCase()
+    const type = (a.type ?? a.option_type ?? "").toLowerCase() === "put" ? "put" : "call"
+    // UW returns ask_side_volume / bid_side_volume — infer which side dominated
+    const askVol = Number(a.ask_side_volume ?? 0)
+    const bidVol = Number(a.bid_side_volume ?? 0)
+    const side: "ask" | "bid" | "mid" = askVol > bidVol ? "ask" : bidVol > askVol ? "bid" : "mid"
     let sentiment: "bullish" | "bearish" | "neutral" = "neutral"
     if (type === "call" && side === "ask") sentiment = "bullish"
     else if (type === "put" && side === "ask") sentiment = "bearish"
     else if (type === "call" && side === "bid") sentiment = "bearish"
     else if (type === "put" && side === "bid") sentiment = "bullish"
     return {
-      createdAt: a.created_at ?? a.executed_at ?? "",
-      optionChain: a.option_chain ?? a.ticker ?? sym,
+      createdAt: a.created_at ?? a.executed_at ?? a.start_time ?? "",
+      optionChain: a.option_chain ?? a.option_symbol ?? sym,
       type,
       strike: Number(a.strike ?? 0),
       expiry: a.expiry ?? a.expiration ?? "",
       premium: Number(a.total_premium ?? a.premium ?? 0),
-      volume: Number(a.volume ?? 0),
+      volume: Number(a.total_size ?? a.volume ?? 0),
       openInterest: Number(a.open_interest ?? 0),
-      side: (side as "ask" | "bid" | "mid") || "mid",
+      side,
       sentiment,
     }
   })
@@ -122,15 +128,18 @@ export async function getUnusualWhalesSummary(symbol: string): Promise<UWSummary
   const bearishCount = alerts.filter((a) => a.sentiment === "bearish").length
   const callPutRatio = putPremium > 0 ? callPremium / putPremium : callPremium > 0 ? Number.POSITIVE_INFINITY : 0
 
-  const g = greeksRes?.data ?? greeksRes ?? null
-  const greekExposure = g
-    ? {
-        callDelta: g.call_delta != null ? Number(g.call_delta) : null,
-        putDelta: g.put_delta != null ? Number(g.put_delta) : null,
-        callGamma: g.call_gamma != null ? Number(g.call_gamma) : null,
-        putGamma: g.put_gamma != null ? Number(g.put_gamma) : null,
-      }
-    : null
+  // greek-exposure/strike returns per-strike rows — sum them for aggregate exposure
+  const gexRows: any[] = gexRes?.data ?? []
+  let greekExposure: UWSummary["greekExposure"] = null
+  if (gexRows.length > 0) {
+    const sum = (key: string) => gexRows.reduce((acc, r) => acc + (Number(r[key]) || 0), 0)
+    greekExposure = {
+      callGamma: sum("call_gamma") || null,
+      putGamma: sum("put_gamma") || null,
+      callDelta: sum("call_delta") || null,
+      putDelta: sum("put_delta") || null,
+    }
+  }
 
   return {
     darkPool: {
