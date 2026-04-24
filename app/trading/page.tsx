@@ -5,6 +5,7 @@ import { TradingAccount } from "@/components/trading-account"
 import { TradingSettings } from "@/components/trading-settings"
 import { TradingPositions } from "@/components/trading-positions"
 import { TradingOrderForm } from "@/components/trading-order-form"
+import { OptionsAnalyzer } from "@/components/options-analyzer"
 
 export const dynamic = "force-dynamic"
 
@@ -49,6 +50,10 @@ export default function TradingPage() {
           </Suspense>
         </div>
       </div>
+
+      <section className="mt-8">
+        <OptionsAnalyzer />
+      </section>
     </main>
   )
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { getSubIndustry, getSector } from "@/lib/constants"
+import { getTheme, getThemeSubtopic } from "@/lib/themes"
 import { getTickerNews } from "@/lib/polygon"
 import { getCompanyNews, getMarketNews } from "@/lib/finnhub"
 import { tavilySearch } from "@/lib/tavily"
@@ -25,12 +26,14 @@ export async function GET(req: Request) {
   const url = new URL(req.url)
   const sectorId = url.searchParams.get("sector") ?? ""
   const subId = url.searchParams.get("sub") ?? ""
+  const themeId = url.searchParams.get("theme") ?? ""
   const tickersParam = url.searchParams.get("tickers") ?? ""
   const category = (url.searchParams.get("category") ?? "all").toLowerCase()
 
   // Resolve tickers and topic label
   let tickers: string[] = []
   let topicLabel = "US stock market"
+  let themeQuery = ""
 
   if (tickersParam) {
     tickers = tickersParam
@@ -38,6 +41,14 @@ export async function GET(req: Request) {
       .map((t) => t.trim().toUpperCase())
       .filter(Boolean)
     topicLabel = tickers.join(" ")
+  } else if (themeId) {
+    const theme = getTheme(themeId)
+    if (theme) {
+      tickers = theme.tickers.slice(0, 12)
+      topicLabel = theme.name
+      const sub = subId ? getThemeSubtopic(themeId, subId) : undefined
+      themeQuery = sub ? sub.query : theme.rootQuery
+    }
   } else {
     const ctx = getSubIndustry(sectorId, subId)
     if (ctx?.sub) {
@@ -66,15 +77,21 @@ export async function GET(req: Request) {
     news: "news earnings guidance",
   }
   const queryExtra = catQuery[category] ?? catQuery.all
+  // For themes, the theme query is more important than category keywords.
+  const tavilyQuery = themeQuery
+    ? `${topicLabel} ${themeQuery} ${topTickers.slice(0, 4).join(" ")}`
+    : `${topicLabel} ${queryExtra} ${topTickers.join(" ")}`
+  const tavilyMaxResults = themeId ? 14 : 8
+  const tavilyDays = themeId ? 14 : 7
 
   const [polyNews, finnhubNews, merger, tav] = await Promise.all([
     Promise.all(topTickers.map((t) => getTickerNews(t, 5))).then((arr) => arr.flat()),
     Promise.all(topTickers.slice(0, 3).map((t) => getCompanyNews(t, 5))).then((arr) => arr.flat()),
     category === "ma" || category === "all" ? getMarketNews("merger") : Promise.resolve([]),
-    tavilySearch(`${topicLabel} ${queryExtra} ${topTickers.join(" ")}`, {
+    tavilySearch(tavilyQuery, {
       topic: "news",
-      maxResults: 8,
-      days: 7,
+      maxResults: tavilyMaxResults,
+      days: tavilyDays,
     }),
   ])
 
