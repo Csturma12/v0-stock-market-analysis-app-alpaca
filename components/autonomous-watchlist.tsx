@@ -1,8 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import useSWR from "swr"
-import { TrendingUp, AlertCircle, Plus } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
+import { TrendingUp, Search, Loader2, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 type PatternStock = {
@@ -19,54 +18,115 @@ type PatternStock = {
 export function AutonomousWatchlist() {
   const [stocks, setStocks] = useState<PatternStock[]>([])
   const [loading, setLoading] = useState(true)
+  const [query, setQuery] = useState("")
+  const [scanning, setScanning] = useState(false)
+  const [scanError, setScanError] = useState<string | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    const fetchPatterns = async () => {
-      try {
-        // Fetch patterns for stocks with high autonomy scores
-        const { data, error } = await fetch("/api/trading/patterns/top").then((r) => r.json())
-        if (data) setStocks(data)
-        if (error) console.log("[v0] Error:", error)
-      } catch (err) {
-        console.log("[v0] Fetch error:", err)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchPatterns()
+    fetch("/api/trading/patterns/top")
+      .then((r) => r.json())
+      .then(({ data }) => { if (data) setStocks(data) })
+      .catch(() => {})
+      .finally(() => setLoading(false))
   }, [])
 
-  if (loading) return <div className="text-sm text-muted-foreground">Loading watchlist...</div>
+  const handleScan = async (symbol?: string) => {
+    const sym = (symbol ?? query).trim().toUpperCase()
+    if (!sym) return
+    setScanError(null)
+    setScanning(true)
+    try {
+      const res = await fetch(`/api/ticker/${sym}/patterns`, { method: "GET" })
+      const json = await res.json()
+      if (json.error) { setScanError(json.error); return }
+      if (json.patterns?.length) {
+        setStocks((prev) => {
+          const existing = new Set(prev.map((s) => `${s.symbol}-${s.pattern_type}`))
+          const newOnes = (json.patterns as PatternStock[]).filter(
+            (p) => !existing.has(`${p.symbol}-${p.pattern_type}`)
+          )
+          return [...newOnes, ...prev]
+        })
+      } else {
+        setScanError(`No strong patterns detected for ${sym} yet — try again after more price history is collected.`)
+      }
+      setQuery("")
+    } catch {
+      setScanError("Scan failed. Check your API connections.")
+    } finally {
+      setScanning(false)
+    }
+  }
 
-  if (!stocks.length)
-    return (
-      <div className="rounded-lg border border-dashed bg-card/50 p-4 text-center">
-        <TrendingUp className="mx-auto h-5 w-5 text-muted-foreground mb-2" />
-        <p className="text-sm text-muted-foreground">Search tickers to detect tradeable patterns</p>
-      </div>
-    )
+  const removeStock = (symbol: string, patternType: string) => {
+    setStocks((prev) => prev.filter((s) => !(s.symbol === symbol && s.pattern_type === patternType)))
+  }
 
   return (
-    <section className="space-y-3">
+    <section className="space-y-3 rounded-lg border bg-card p-4">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <AlertCircle className="h-5 w-5 text-amber-400" />
-          <h3 className="font-mono text-sm font-semibold uppercase tracking-wider">Pattern Watchlist</h3>
+          <TrendingUp className="h-4 w-4 text-amber-400" />
+          <h3 className="font-mono text-sm font-semibold uppercase tracking-wider">Autonomous Pattern Watchlist</h3>
         </div>
-        <span className="text-xs font-mono text-muted-foreground">{stocks.length} stocks</span>
+        {stocks.length > 0 && (
+          <span className="font-mono text-[11px] text-muted-foreground">{stocks.length} pattern{stocks.length !== 1 ? "s" : ""}</span>
+        )}
       </div>
 
-      <div className="space-y-2 max-h-96 overflow-y-auto">
-        {stocks.map((stock, idx) => (
-          <PatternStockRow key={`${stock.symbol}-${idx}`} stock={stock} />
-        ))}
+      {/* Inline Search */}
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <input
+            ref={inputRef}
+            value={query}
+            onChange={(e) => { setQuery(e.target.value.toUpperCase()); setScanError(null) }}
+            onKeyDown={(e) => e.key === "Enter" && handleScan()}
+            placeholder="Scan a ticker e.g. NVDA, AAPL, SPY…"
+            className="w-full rounded-md border bg-background py-1.5 pl-8 pr-3 font-mono text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+        </div>
+        <button
+          onClick={() => handleScan()}
+          disabled={scanning || !query.trim()}
+          className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 font-mono text-xs font-semibold text-primary-foreground transition-opacity disabled:opacity-50"
+        >
+          {scanning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
+          {scanning ? "Scanning…" : "Scan"}
+        </button>
       </div>
+
+      {/* Error */}
+      {scanError && (
+        <p className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 font-mono text-[11px] text-red-400">{scanError}</p>
+      )}
+
+      {/* Results */}
+      {loading ? (
+        <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" /> Loading saved patterns…
+        </div>
+      ) : stocks.length === 0 ? (
+        <div className="py-6 text-center">
+          <TrendingUp className="mx-auto mb-2 h-6 w-6 text-muted-foreground/40" />
+          <p className="text-sm text-muted-foreground">Scan a ticker above to detect its tradeable patterns.</p>
+          <p className="mt-1 text-[11px] text-muted-foreground/60">Patterns are saved automatically as you browse tickers.</p>
+        </div>
+      ) : (
+        <div className="max-h-96 space-y-2 overflow-y-auto">
+          {stocks.map((stock, idx) => (
+            <PatternStockRow key={`${stock.symbol}-${stock.pattern_type}-${idx}`} stock={stock} onRemove={removeStock} />
+          ))}
+        </div>
+      )}
     </section>
   )
 }
 
-function PatternStockRow({ stock }: { stock: PatternStock }) {
+function PatternStockRow({ stock, onRemove }: { stock: PatternStock; onRemove: (symbol: string, patternType: string) => void }) {
   const isHighConfidence = stock.autonomy_score >= 70
   const isFrequentTrade = stock.frequency === "weekly" || stock.frequency === "monthly"
 
@@ -132,9 +192,13 @@ function PatternStockRow({ stock }: { stock: PatternStock }) {
             {stock.frequency}
           </div>
 
-          {/* Add to Watchlist Button */}
-          <button className="rounded p-1 hover:bg-muted transition-colors" title="Add to watchlist">
-            <Plus className="h-3.5 w-3.5 text-muted-foreground" />
+          {/* Remove button */}
+          <button
+            className="rounded p-1 hover:bg-muted transition-colors"
+            title="Remove from watchlist"
+            onClick={() => onRemove(stock.symbol, stock.pattern_type)}
+          >
+            <X className="h-3.5 w-3.5 text-muted-foreground" />
           </button>
         </div>
       </div>
