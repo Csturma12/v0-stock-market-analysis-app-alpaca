@@ -54,21 +54,21 @@ export function ThemeGrid({ themes }: { themes: Theme[] }) {
           key={t.id}
           href={`/theme/${t.id}`}
           className={cn(
-            "group relative flex flex-col gap-3 rounded-lg border bg-card p-5 transition-all hover:shadow-lg",
+            "group relative flex flex-col gap-2 rounded-lg border bg-card p-4 transition-all hover:shadow-lg",
             ACCENT_CLASSES[t.accent],
           )}
         >
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-2.5">
               <ThemeIcon id={t.id} className={cn("h-5 w-5", ACCENT_ICON[t.accent])} />
-              <h3 className="text-lg font-semibold leading-tight text-card-foreground">{t.name}</h3>
+              <h3 className="text-base font-semibold leading-tight text-card-foreground">{t.name}</h3>
             </div>
             <ArrowUpRight className="h-5 w-5 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground" />
           </div>
 
-          <p className="text-pretty text-sm leading-relaxed text-muted-foreground">{t.description}</p>
+          <p className="line-clamp-2 text-pretty text-xs leading-relaxed text-muted-foreground">{t.description}</p>
 
-          <div className="mt-auto flex items-center justify-between gap-3 pt-2">
+          <div className="mt-auto flex items-center justify-between gap-3 pt-1">
             <span className={cn("font-mono text-xs uppercase tracking-widest", ACCENT_ICON[t.accent])}>
               {t.subtopics.length} topics · {t.tickers.length} tickers
             </span>

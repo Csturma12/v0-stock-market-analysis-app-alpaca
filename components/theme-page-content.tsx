@@ -44,7 +44,7 @@ export function ThemePageContent({ theme }: { theme: Theme }) {
       {/* Sub-topic pills */}
       <section className="flex flex-col gap-3">
         <h2 className="font-mono text-xs uppercase tracking-widest text-muted-foreground">Filter by topic</h2>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-1.5">
           <SubPill
             label="All topics"
             active={activeSub === ""}
@@ -182,7 +182,7 @@ function SubPill({
       data-active={active}
       onClick={onClick}
       className={cn(
-        "rounded-full border border-border bg-card px-3.5 py-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground",
+        "rounded-full border border-border bg-card px-2.5 py-0.5 font-mono text-[11px] uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground",
         ACCENT_BORDER[accent],
       )}
     >
