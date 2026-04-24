@@ -1,7 +1,19 @@
+import React from "react"
 import Link from "next/link"
 import type { Theme } from "@/lib/themes"
 import { cn } from "@/lib/utils"
-import { ArrowUpRight, Sparkles, Scale } from "lucide-react"
+import {
+  ArrowUpRight,
+  Sparkles,
+  Scale,
+  Building2,
+  ShoppingCart,
+  Shield,
+  Flame,
+  Stethoscope,
+  Landmark,
+  Cpu,
+} from "lucide-react"
 
 const ACCENT_CLASSES: Record<Theme["accent"], string> = {
   primary: "border-primary/40 hover:border-primary hover:shadow-[0_0_0_1px_var(--primary)]",
@@ -17,35 +29,46 @@ const ACCENT_ICON: Record<Theme["accent"], string> = {
   warning: "text-amber-400",
 }
 
+const THEME_ICONS: Record<string, React.ElementType> = {
+  "ai-industry": Sparkles,
+  "ai-infrastructure": Cpu,
+  "political-ma": Scale,
+  "real-estate": Building2,
+  "consumer-retail": ShoppingCart,
+  "defense-government": Shield,
+  "energy-industrials": Flame,
+  "healthcare-biopharma": Stethoscope,
+  "banking-finance": Landmark,
+}
+
 function ThemeIcon({ id, className }: { id: string; className?: string }) {
-  if (id === "ai-industry") return <Sparkles className={className} />
-  if (id === "political-ma") return <Scale className={className} />
-  return <Sparkles className={className} />
+  const Icon = THEME_ICONS[id] ?? Sparkles
+  return <Icon className={className} />
 }
 
 export function ThemeGrid({ themes }: { themes: Theme[] }) {
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {themes.map((t) => (
         <Link
           key={t.id}
           href={`/theme/${t.id}`}
           className={cn(
-            "group relative flex flex-col gap-3 rounded-lg border bg-card p-5 transition-all hover:shadow-lg",
+            "group relative flex flex-col gap-2 rounded-lg border bg-card p-4 transition-all hover:shadow-lg",
             ACCENT_CLASSES[t.accent],
           )}
         >
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-2.5">
               <ThemeIcon id={t.id} className={cn("h-5 w-5", ACCENT_ICON[t.accent])} />
-              <h3 className="text-lg font-semibold leading-tight text-card-foreground">{t.name}</h3>
+              <h3 className="text-base font-semibold leading-tight text-card-foreground">{t.name}</h3>
             </div>
             <ArrowUpRight className="h-5 w-5 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground" />
           </div>
 
-          <p className="text-pretty text-sm leading-relaxed text-muted-foreground">{t.description}</p>
+          <p className="line-clamp-2 text-pretty text-xs leading-relaxed text-muted-foreground">{t.description}</p>
 
-          <div className="mt-auto flex items-center justify-between gap-3 pt-2">
+          <div className="mt-auto flex items-center justify-between gap-3 pt-1">
             <span className={cn("font-mono text-xs uppercase tracking-widest", ACCENT_ICON[t.accent])}>
               {t.subtopics.length} topics · {t.tickers.length} tickers
             </span>

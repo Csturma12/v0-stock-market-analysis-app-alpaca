@@ -100,6 +100,75 @@ export async function placeOrder(params: {
   })
 }
 
+// Options contract search
+export type AlpacaOptionContract = {
+  id: string
+  symbol: string
+  underlying_symbol: string
+  expiration_date: string
+  strike_price: string
+  type: "call" | "put"
+  status: string
+  tradable: boolean
+  open_interest: string | null
+  volume: string | null
+  close_price: string | null
+  delta: string | null
+  gamma: string | null
+  theta: string | null
+  vega: string | null
+  implied_volatility: string | null
+}
+
+export async function searchOptionContracts(params: {
+  underlying_symbol: string
+  expiration_date?: string
+  expiration_date_gte?: string
+  expiration_date_lte?: string
+  strike_price_gte?: string
+  strike_price_lte?: string
+  type?: "call" | "put"
+  limit?: number
+}): Promise<AlpacaOptionContract[]> {
+  const qs = new URLSearchParams({
+    underlying_symbols: params.underlying_symbol,
+    feed: "indicative",
+    limit: String(params.limit ?? 25),
+    ...(params.expiration_date ? { expiration_date: params.expiration_date } : {}),
+    ...(params.expiration_date_gte ? { expiration_date_gte: params.expiration_date_gte } : {}),
+    ...(params.expiration_date_lte ? { expiration_date_lte: params.expiration_date_lte } : {}),
+    ...(params.strike_price_gte ? { strike_price_gte: params.strike_price_gte } : {}),
+    ...(params.strike_price_lte ? { strike_price_lte: params.strike_price_lte } : {}),
+    ...(params.type ? { type: params.type } : {}),
+  })
+  const data = await alpaca<{ option_contracts: AlpacaOptionContract[] }>(
+    `/v2/options/contracts?${qs.toString()}`,
+  )
+  return data.option_contracts ?? []
+}
+
+export async function placeOptionOrder(params: {
+  symbol: string // OCC symbol e.g. AAPL240119C00150000
+  qty: number
+  side: "buy" | "sell"
+  type?: "market" | "limit"
+  limit_price?: number
+  time_in_force?: "day" | "gtc"
+}) {
+  return alpaca<AlpacaOrder>("/v2/orders", {
+    method: "POST",
+    body: JSON.stringify({
+      symbol: params.symbol,
+      qty: params.qty,
+      side: params.side,
+      type: params.type ?? "limit",
+      time_in_force: params.time_in_force ?? "day",
+      asset_class: "option",
+      ...(params.limit_price ? { limit_price: params.limit_price } : {}),
+    }),
+  })
+}
+
 export async function cancelOrder(id: string) {
   const res = await fetch(`${BASE}/v2/orders/${id}`, { method: "DELETE", headers: headers(), cache: "no-store" })
   return res.ok
