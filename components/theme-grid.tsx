@@ -1,7 +1,19 @@
+import React from "react"
 import Link from "next/link"
 import type { Theme } from "@/lib/themes"
 import { cn } from "@/lib/utils"
-import { ArrowUpRight, Sparkles, Scale } from "lucide-react"
+import {
+  ArrowUpRight,
+  Sparkles,
+  Scale,
+  Building2,
+  ShoppingCart,
+  Shield,
+  Flame,
+  Stethoscope,
+  Landmark,
+  Cpu,
+} from "lucide-react"
 
 const ACCENT_CLASSES: Record<Theme["accent"], string> = {
   primary: "border-primary/40 hover:border-primary hover:shadow-[0_0_0_1px_var(--primary)]",
@@ -17,15 +29,26 @@ const ACCENT_ICON: Record<Theme["accent"], string> = {
   warning: "text-amber-400",
 }
 
+const THEME_ICONS: Record<string, React.ElementType> = {
+  "ai-industry": Sparkles,
+  "ai-infrastructure": Cpu,
+  "political-ma": Scale,
+  "real-estate": Building2,
+  "consumer-retail": ShoppingCart,
+  "defense-government": Shield,
+  "energy-industrials": Flame,
+  "healthcare-biopharma": Stethoscope,
+  "banking-finance": Landmark,
+}
+
 function ThemeIcon({ id, className }: { id: string; className?: string }) {
-  if (id === "ai-industry") return <Sparkles className={className} />
-  if (id === "political-ma") return <Scale className={className} />
-  return <Sparkles className={className} />
+  const Icon = THEME_ICONS[id] ?? Sparkles
+  return <Icon className={className} />
 }
 
 export function ThemeGrid({ themes }: { themes: Theme[] }) {
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {themes.map((t) => (
         <Link
           key={t.id}
