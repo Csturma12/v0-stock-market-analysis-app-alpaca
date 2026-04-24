@@ -136,6 +136,8 @@ export async function getCongressionalTrades(symbol: string): Promise<Congressio
     disclosure: t.disclosure_type ?? t.type ?? "",
   }))
 }
+
+export async function getUnusualWhalesSummary(symbol: string): Promise<UWSummary | null> {
   const sym = symbol.toUpperCase()
 
   const [darkPoolRes, flowRes, gexRes] = await Promise.all([
