@@ -73,7 +73,69 @@ export type UWSummary = {
   } | null
 }
 
-export async function getUnusualWhalesSummary(symbol: string): Promise<UWSummary | null> {
+export type InsiderTrade = {
+  executedAt: string
+  insiderName: string
+  insiderTitle: string
+  company: string
+  transactionType: "BUY" | "SELL" | "OTHER"
+  shares: number
+  price: number
+  value: number
+  percentOfHoldings: number | null
+}
+
+export type CongressionalTrade = {
+  executedAt: string
+  politicianName: string
+  chamber: "House" | "Senate"
+  transactionType: "BUY" | "SELL" | "OTHER"
+  company: string
+  ticker: string
+  shares: number
+  price: number
+  value: number
+  disclosure: string // "SELL" | "BUY" | "EXCHANGE" etc
+}
+
+export async function getInsiderTrades(symbol: string): Promise<InsiderTrade[]> {
+  const sym = symbol.toUpperCase()
+  const res = await uwFetch<any>(`/stock/${sym}/insider-trades?limit=50`)
+
+  if (!res?.data) return []
+
+  return (res.data as any[]).map((t: any) => ({
+    executedAt: t.executed_at ?? t.filing_date ?? "",
+    insiderName: t.insider_name ?? t.filer_name ?? "",
+    insiderTitle: t.insider_title ?? t.title ?? "",
+    company: t.company ?? sym,
+    transactionType: ((t.transaction_type ?? "OTHER").toUpperCase() as any) || "OTHER",
+    shares: Number(t.shares ?? t.volume ?? 0),
+    price: Number(t.price ?? 0),
+    value: Number(t.total_value ?? Number(t.price ?? 0) * Number(t.shares ?? 0)),
+    percentOfHoldings: t.percent_of_holdings ? Number(t.percent_of_holdings) : null,
+  }))
+}
+
+export async function getCongressionalTrades(symbol: string): Promise<CongressionalTrade[]> {
+  const sym = symbol.toUpperCase()
+  const res = await uwFetch<any>(`/stock/${sym}/congressional-trades?limit=50`)
+
+  if (!res?.data) return []
+
+  return (res.data as any[]).map((t: any) => ({
+    executedAt: t.executed_at ?? t.transaction_date ?? t.disclosure_date ?? "",
+    politicianName: t.politician_name ?? t.representative ?? "",
+    chamber: (t.chamber ?? "House").includes("Senate") ? "Senate" : "House",
+    transactionType: ((t.transaction_type ?? "OTHER").toUpperCase() as any) || "OTHER",
+    company: t.company ?? "",
+    ticker: t.ticker ?? sym,
+    shares: Number(t.shares ?? t.quantity ?? 0),
+    price: Number(t.price ?? 0),
+    value: Number(t.total_value ?? Number(t.price ?? 0) * Number(t.shares ?? 0)),
+    disclosure: t.disclosure_type ?? t.type ?? "",
+  }))
+}
   const sym = symbol.toUpperCase()
 
   const [darkPoolRes, flowRes, gexRes] = await Promise.all([
