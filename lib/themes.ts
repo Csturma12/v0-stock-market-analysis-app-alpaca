@@ -80,8 +80,6 @@ export const THEMES: Theme[] = [
       "GOOGL", "META", "AMZN", "MSFT",
     ],
   },
-]
-
   {
     id: "ai-infrastructure",
     name: "AI Infrastructure",
