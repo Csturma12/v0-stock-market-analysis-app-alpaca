@@ -190,6 +190,40 @@ export type TickerSearchResult = {
   active: boolean
 }
 
+export type OHLCV = {
+  t: string // timestamp
+  o: number // open
+  h: number // high
+  l: number // low
+  c: number // close
+  v: number // volume
+}
+
+export async function getBars(
+  ticker: string,
+  timeframe: "minute" | "hour" | "day" | "week" | "month" = "day",
+  limit = 40,
+): Promise<OHLCV[]> {
+  try {
+    const data = await poly<{ results?: any[] }>(`/v2/aggs/ticker/${ticker}/range/1/${timeframe}/`, {
+      limit,
+      sort: "asc",
+    })
+    return (
+      data.results?.map((r) => ({
+        t: new Date(r.t).toISOString(),
+        o: r.o,
+        h: r.h,
+        l: r.l,
+        c: r.c,
+        v: r.v,
+      })) ?? []
+    )
+  } catch {
+    return []
+  }
+}
+
 export async function searchTickers(query: string, limit = 10): Promise<TickerSearchResult[]> {
   const q = query.trim()
   if (!q) return []

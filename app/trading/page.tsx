@@ -8,6 +8,8 @@ import { TradingSettings } from "@/components/trading-settings"
 import { TradingPositions } from "@/components/trading-positions"
 import { TradingOrderForm } from "@/components/trading-order-form"
 import { TradingTradeIdea } from "@/components/trading-trade-idea"
+import { TradingDeck } from "@/components/trading-deck"
+import { AutonomousWatchlist } from "@/components/autonomous-watchlist"
 import { OptionsAnalyzer } from "@/components/options-analyzer"
 
 type StageParams = {
@@ -77,6 +79,16 @@ export default function TradingPage() {
           </Suspense>
         </div>
       </div>
+
+      {/* Autonomous Pattern Watchlist */}
+      <section className="mt-8">
+        <AutonomousWatchlist />
+      </section>
+
+      {/* Trade Deck — History, P&L, Strategy Performance */}
+      <section className="mt-8">
+        <TradingDeck />
+      </section>
 
       {/* Options Analyzer */}
       <section className="mt-8">

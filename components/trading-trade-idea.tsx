@@ -45,6 +45,12 @@ type Idea = {
   catalysts: string[]
   keyMetrics: { label: string; value: string }[]
   plays?: Play[]
+  // New fields for autonomous trading
+  whyThisTrade?: string
+  edge?: string
+  winRate?: number // 0-100
+  historicalSetups?: number // how many similar setups in history
+  avgReturn?: number // avg % return on similar setups
 }
 
 const STRATEGY_LABELS: Record<string, string> = {
@@ -225,6 +231,50 @@ export function TradingTradeIdea({
                 R:R {rr.toFixed(2)}
               </span>
             </div>
+
+            {/* Why / Edge / Win Rate */}
+            {(idea.whyThisTrade || idea.edge || idea.winRate != null) && (
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                {idea.whyThisTrade && (
+                  <div className="rounded-md border border-primary/30 bg-primary/5 p-3">
+                    <h4 className="mb-1 font-mono text-[10px] uppercase tracking-widest text-primary">
+                      Why this trade?
+                    </h4>
+                    <p className="text-sm leading-relaxed text-foreground">{idea.whyThisTrade}</p>
+                  </div>
+                )}
+                {idea.edge && (
+                  <div className="rounded-md border border-amber-400/30 bg-amber-400/5 p-3">
+                    <h4 className="mb-1 font-mono text-[10px] uppercase tracking-widest text-amber-400">
+                      What&apos;s the edge?
+                    </h4>
+                    <p className="text-sm leading-relaxed text-foreground">{idea.edge}</p>
+                  </div>
+                )}
+                {idea.winRate != null && (
+                  <div className="rounded-md border border-[color:var(--color-bull)]/30 bg-[color:var(--color-bull)]/5 p-3">
+                    <h4 className="mb-1 font-mono text-[10px] uppercase tracking-widest text-[color:var(--color-bull)]">
+                      Historical win rate
+                    </h4>
+                    <div className="flex items-baseline gap-2">
+                      <span className="font-mono text-2xl font-bold tabular-nums text-[color:var(--color-bull)]">
+                        {idea.winRate}%
+                      </span>
+                      {idea.historicalSetups != null && (
+                        <span className="text-xs text-muted-foreground">
+                          ({idea.historicalSetups} similar setups)
+                        </span>
+                      )}
+                    </div>
+                    {idea.avgReturn != null && (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Avg return: <span className="font-medium text-foreground">{idea.avgReturn > 0 ? "+" : ""}{idea.avgReturn.toFixed(1)}%</span>
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Thesis */}
             <p className="text-pretty leading-relaxed">{idea.thesis}</p>

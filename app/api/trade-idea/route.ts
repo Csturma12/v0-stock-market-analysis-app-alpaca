@@ -70,6 +70,12 @@ const TradeIdeaSchema = z.object({
     .describe(
       "Concrete structures. ALWAYS include at least one primary play. When the primary thesis is risky (swing trade, speculative long call/put, or event-driven), you MUST include a hedge play when practical. For low-risk income setups (like covered calls on existing longs) a hedge is optional.",
     ),
+  // Autonomous trading fields
+  whyThisTrade: z.string().describe("1-2 sentences explaining WHY this specific trade right now — what market condition or signal triggered this idea. Answer: Why this ticker? Why now? Why this direction?"),
+  edge: z.string().describe("1-2 sentences describing the informational or structural edge: dark pool accumulation, options flow imbalance, earnings surprise pattern, technical breakout with volume, etc."),
+  winRate: z.number().min(0).max(100).describe("Estimated historical win rate (0-100%) for similar setups based on past ideas and market patterns. Be conservative."),
+  historicalSetups: z.number().describe("How many similar setups you've seen or can recall from the past ideas data. If uncertain, use 5-20 as a reasonable estimate."),
+  avgReturn: z.number().describe("Average % return on similar historical setups. Positive for wins, negative overall if more losses. Be realistic."),
 })
 
 export async function POST(req: Request) {
@@ -214,7 +220,14 @@ LEG FORMATTING:
 Explicitly factor in dark pool bias and unusual options flow — they reveal what smart money is doing.
 When dark pool and options flow disagree with retail sentiment or price action, flag it in the risks.
 Be honest about risk. If data is insufficient or the setup is poor, set conviction to 1-3 and direction to "neutral" and recommend a single low-conviction long_stock play with tight stop.
-Entry/stop/target must be real price levels near the current stock price. Use 1R:2R minimum reward-to-risk for longs/shorts.`,
+Entry/stop/target must be real price levels near the current stock price. Use 1R:2R minimum reward-to-risk for longs/shorts.
+
+AUTONOMOUS TRADING FIELDS (required):
+- whyThisTrade: Explain the specific trigger — e.g. "Dark pool prints showing $12M accumulation over 3 days with price consolidating at support" or "Unusual call sweep activity ahead of earnings with implied move understated".
+- edge: Identify the informational or structural advantage — e.g. "Smart money positioning via dark pool is bullish while retail sentiment is neutral; options flow shows 3:1 call premium bias".
+- winRate: Based on past ideas data and general market patterns for this setup type, estimate a realistic win rate. If past ideas show 3 wins out of 5 similar setups, use 60%. If no past data, use conservative estimates (45-55% for directional, 55-65% for mean reversion).
+- historicalSetups: Count similar setups from past ideas. If none in the data, estimate based on how common this pattern is (5-20 for common setups, 1-5 for rare events).
+- avgReturn: Average % return. If past trades averaged +3.2% on wins and -1.8% on losses with 60% win rate, the avgReturn would be ~1.2%. Be realistic, not optimistic.`,
       prompt: context,
       experimental_output: Output.object({ schema: TradeIdeaSchema }),
     })
