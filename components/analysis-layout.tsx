@@ -110,12 +110,12 @@ export function AnalysisLayout({
         layout={layout}
         cols={12}
         rowHeight={40}
-        margin={[10, 10]}
+        margin={[2, 2]}
         containerPadding={[0, 0]}
         draggableHandle=".widget-drag-handle"
         onLayoutChange={handleChange}
         compactType={null}
-        preventCollision={false}
+        preventCollision={true}
         isResizable
         isDraggable
         resizeHandles={ALL_HANDLES}
