@@ -12,6 +12,7 @@ import { KeyMetricsDisplay } from "@/components/key-metrics-display"
 import { TickerSupportResistance } from "@/components/ticker-support-resistance"
 import { TickerCatalystsRisks } from "@/components/ticker-catalysts-risks"
 import { TickerNews } from "@/components/ticker-news"
+import { TradierOptionsFlow } from "@/components/tradier-options-flow"
 import { AnalysisLayout, type Widget } from "@/components/analysis-layout"
 
 export const dynamic = "force-dynamic"
@@ -95,7 +96,13 @@ export default async function TickerPage({ params }: { params: Promise<{ symbol:
       id: "catalysts",
       title: "Catalysts & Risks",
       content: <TickerCatalystsRisks symbol={sym} />,
-      defaultLayout: { x: 3, y: 18, w: 6, h: 8, minW: 3, minH: 4 },
+      defaultLayout: { x: 3, y: 18, w: 3, h: 8, minW: 2, minH: 4 },
+    },
+    {
+      id: "tradier-flow",
+      title: "Tradier Options Flow",
+      content: <TradierOptionsFlow symbol={sym} />,
+      defaultLayout: { x: 6, y: 18, w: 3, h: 8, minW: 2, minH: 5 },
     },
   ]
 

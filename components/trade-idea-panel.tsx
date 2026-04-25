@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { cn } from "@/lib/utils"
-import { Sparkles, TrendingUp, TrendingDown, Minus, Shield, Target, Brain } from "lucide-react"
+import { Sparkles, TrendingUp, TrendingDown, Minus, Shield, Target, Brain, Zap, Loader2 } from "lucide-react"
 
 type Leg = {
   action: "buy" | "sell"
@@ -72,7 +72,55 @@ export function TradeIdeaPanel({ symbol }: { symbol: string }) {
   const [claudeIdea, setClaudeIdea] = useState<ClaudeIdea | null>(null)
   const [openaiIdea, setOpenaiIdea] = useState<OpenAIIdea | null>(null)
   const [loading, setLoading] = useState(false)
+  const [executing, setExecuting] = useState<"claude" | "openai" | null>(null)
+  const [execResult, setExecResult] = useState<{ success: boolean; message: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  async function executeTrade(source: "claude" | "openai") {
+    const idea = source === "claude" ? claudeIdea : openaiIdea
+    if (!idea) return
+
+    setExecuting(source)
+    setExecResult(null)
+
+    try {
+      // Determine action and price from the idea
+      const action = source === "claude" 
+        ? (claudeIdea!.direction === "long" ? "buy" : "sell")
+        : (openaiIdea!.action === "BUY" ? "buy" : "sell")
+      
+      const entry = source === "claude" ? claudeIdea!.entry : openaiIdea!.entry
+
+      const res = await fetch("/api/tradier/execute", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          type: "stock",
+          symbol: symbol,
+          action: action,
+          quantity: 1, // Default to 1 share, user can modify
+          orderType: entry ? "limit" : "market",
+          limitPrice: entry,
+          duration: "day",
+        }),
+      })
+
+      const data = await res.json()
+      
+      if (data.error) {
+        setExecResult({ success: false, message: data.error })
+      } else {
+        setExecResult({ 
+          success: true, 
+          message: `Order ${data.order.id} placed: ${action.toUpperCase()} @ $${data.quote.price?.toFixed(2) || entry}` 
+        })
+      }
+    } catch (e: any) {
+      setExecResult({ success: false, message: e.message })
+    } finally {
+      setExecuting(null)
+    }
+  }
 
   async function generate() {
     setLoading(true)
@@ -140,6 +188,17 @@ export function TradeIdeaPanel({ symbol }: { symbol: string }) {
           </div>
         )}
 
+        {execResult && (
+          <div className={cn(
+            "rounded-md p-3 text-sm",
+            execResult.success 
+              ? "bg-[color:var(--color-bull)]/10 text-[color:var(--color-bull)]" 
+              : "bg-[color:var(--color-bear)]/10 text-[color:var(--color-bear)]"
+          )}>
+            {execResult.message}
+          </div>
+        )}
+
         {!hasIdeas && !loading && !error && (
           <p className="text-sm leading-relaxed text-muted-foreground">
             Run a full agentic analysis: fundamentals + technicals + news + options chain + institutional flow. 
@@ -161,12 +220,21 @@ export function TradeIdeaPanel({ symbol }: { symbol: string }) {
           <div className="flex flex-col gap-4">
             {/* Claude Idea */}
             {claudeIdea && (
-              <ClaudeIdeaCard symbol={symbol} idea={claudeIdea} />
+              <ClaudeIdeaCard 
+                symbol={symbol} 
+                idea={claudeIdea} 
+                onExecute={() => executeTrade("claude")}
+                executing={executing === "claude"}
+              />
             )}
 
             {/* OpenAI Idea */}
             {openaiIdea && (
-              <OpenAIIdeaCard idea={openaiIdea} />
+              <OpenAIIdeaCard 
+                idea={openaiIdea} 
+                onExecute={() => executeTrade("openai")}
+                executing={executing === "openai"}
+              />
             )}
           </div>
         )}
@@ -175,7 +243,7 @@ export function TradeIdeaPanel({ symbol }: { symbol: string }) {
   )
 }
 
-function ClaudeIdeaCard({ symbol, idea }: { symbol: string; idea: ClaudeIdea }) {
+function ClaudeIdeaCard({ symbol, idea, onExecute, executing }: { symbol: string; idea: ClaudeIdea; onExecute: () => void; executing: boolean }) {
   const directionIcon = idea.direction === "long" ? TrendingUp : idea.direction === "short" ? TrendingDown : Minus
   const Icon = directionIcon
   const dirColor =
@@ -230,11 +298,30 @@ function ClaudeIdeaCard({ symbol, idea }: { symbol: string; idea: ClaudeIdea }) 
           ))}
         </div>
       )}
+
+      {/* Execute via Tradier */}
+      <button
+        onClick={onExecute}
+        disabled={executing}
+        className="mt-3 w-full rounded-md bg-purple-500/20 border border-purple-500/40 px-3 py-2 text-xs font-medium text-purple-300 transition-colors hover:bg-purple-500/30 disabled:opacity-50 flex items-center justify-center gap-2"
+      >
+        {executing ? (
+          <>
+            <Loader2 className="h-3 w-3 animate-spin" />
+            Executing...
+          </>
+        ) : (
+          <>
+            <Zap className="h-3 w-3" />
+            Execute via Tradier
+          </>
+        )}
+      </button>
     </div>
   )
 }
 
-function OpenAIIdeaCard({ idea }: { idea: OpenAIIdea }) {
+function OpenAIIdeaCard({ idea, onExecute, executing }: { idea: OpenAIIdea; onExecute: () => void; executing: boolean }) {
   const isBullish = idea.position_bias === "bullish"
   const isBearish = idea.position_bias === "bearish"
 
@@ -284,6 +371,27 @@ function OpenAIIdeaCard({ idea }: { idea: OpenAIIdea }) {
         <div className="mt-1 text-[10px] text-amber-400">
           <span className="font-semibold">Invalid if:</span> {idea.invalid_if}
         </div>
+      )}
+
+      {/* Execute via Tradier */}
+      {idea.action !== "NO_TRADE" && (
+        <button
+          onClick={onExecute}
+          disabled={executing}
+          className="mt-3 w-full rounded-md bg-emerald-500/20 border border-emerald-500/40 px-3 py-2 text-xs font-medium text-emerald-300 transition-colors hover:bg-emerald-500/30 disabled:opacity-50 flex items-center justify-center gap-2"
+        >
+          {executing ? (
+            <>
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Executing...
+            </>
+          ) : (
+            <>
+              <Zap className="h-3 w-3" />
+              Execute via Tradier
+            </>
+          )}
+        </button>
       )}
     </div>
   )

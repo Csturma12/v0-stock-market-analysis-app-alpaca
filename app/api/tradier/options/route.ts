@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getOptionChain, getOptionExpirations, isConfigured } from "@/lib/tradier"
 
+export const dynamic = "force-dynamic"
+
 export async function GET(req: NextRequest) {
   if (!isConfigured()) {
     return NextResponse.json(
