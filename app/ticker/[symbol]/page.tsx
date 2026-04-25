@@ -29,39 +29,26 @@ export default async function TickerPage({ params }: { params: Promise<{ symbol:
 
       <TickerHeader symbol={sym} />
 
+      {/* Main two-column layout: left = content, right = sidebar */}
       <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
+
+        {/* LEFT — main content column */}
+        <div className="flex flex-col gap-6 lg:col-span-2">
           <TickerChart symbol={sym} />
-        </div>
-        <div>
-          <TickerTechnicals symbol={sym} />
-        </div>
-      </div>
-
-      <div className="mt-8">
-        <TickerDarkPool symbol={sym} />
-      </div>
-
-      {/* Tradeable Patterns Section */}
-      <div className="mt-8">
-        <TickerPatterns symbol={sym} />
-      </div>
-
-      <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
+          <TickerDarkPool symbol={sym} />
+          <TickerPatterns symbol={sym} />
           <TradeIdeaPanel symbol={sym} />
-        </div>
-        <div className="flex flex-col gap-6">
-          <TickerAnalystRatings symbol={sym} />
-          <KeyMetricsDisplay symbol={sym} />
-          <TickerFundamentals symbol={sym} />
-        </div>
-      </div>
-
-      <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
           <TickerNews symbol={sym} />
         </div>
+
+        {/* RIGHT — sidebar */}
+        <div className="flex flex-col gap-6">
+          <TickerAnalystRatings symbol={sym} />
+          <TickerFundamentals symbol={sym} />
+          <TickerTechnicals symbol={sym} />
+          <KeyMetricsDisplay symbol={sym} />
+        </div>
+
       </div>
     </main>
   )
