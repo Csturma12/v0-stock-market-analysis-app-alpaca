@@ -13,17 +13,46 @@ function headers() {
   }
 }
 
-async function alpaca<T>(path: string, init?: RequestInit): Promise<T> {
+// In-memory cache for rapid repeated requests (cleared on server restart)
+const memCache = new Map<string, { data: unknown; ts: number }>()
+const MEM_TTL_MS = 5000 // 5 seconds
+
+async function alpaca<T>(path: string, init?: RequestInit, ttl = 10): Promise<T> {
+  // Skip cache for mutations
+  if (init?.method && init.method !== "GET") {
+    const res = await fetch(BASE + path, {
+      ...init,
+      headers: { ...headers(), ...(init?.headers ?? {}) },
+    })
+    if (!res.ok) {
+      const body = await res.text().catch(() => "")
+      throw new Error(`Alpaca ${res.status}: ${body.slice(0, 300)}`)
+    }
+    return res.json() as Promise<T>
+  }
+
+  // Check in-memory cache first (fastest)
+  const cacheKey = path
+  const cached = memCache.get(cacheKey)
+  if (cached && Date.now() - cached.ts < MEM_TTL_MS) {
+    return cached.data as T
+  }
+
   const res = await fetch(BASE + path, {
     ...init,
     headers: { ...headers(), ...(init?.headers ?? {}) },
-    cache: "no-store",
+    next: { revalidate: ttl }, // Next.js ISR caching
   })
   if (!res.ok) {
     const body = await res.text().catch(() => "")
     throw new Error(`Alpaca ${res.status}: ${body.slice(0, 300)}`)
   }
-  return res.json() as Promise<T>
+  const data = await res.json() as T
+
+  // Store in memory cache
+  memCache.set(cacheKey, { data, ts: Date.now() })
+
+  return data
 }
 
 export type AlpacaAccount = {
@@ -86,7 +115,7 @@ export async function placeOrder(params: {
   time_in_force?: "day" | "gtc"
   limit_price?: number
 }) {
-  return alpaca<AlpacaOrder>("/v2/orders", {
+  const result = await alpaca<AlpacaOrder>("/v2/orders", {
     method: "POST",
     body: JSON.stringify({
       symbol: params.symbol,
@@ -98,6 +127,11 @@ export async function placeOrder(params: {
       ...(params.limit_price ? { limit_price: params.limit_price } : {}),
     }),
   })
+  // Clear cache after placing order so positions/orders refresh
+  memCache.delete("/v2/account")
+  memCache.delete("/v2/positions")
+  memCache.delete("/v2/orders?status=all&limit=50&direction=desc")
+  return result
 }
 
 // Options contract search
@@ -155,7 +189,7 @@ export async function placeOptionOrder(params: {
   limit_price?: number
   time_in_force?: "day" | "gtc"
 }) {
-  return alpaca<AlpacaOrder>("/v2/orders", {
+  const result = await alpaca<AlpacaOrder>("/v2/orders", {
     method: "POST",
     body: JSON.stringify({
       symbol: params.symbol,
@@ -167,10 +201,18 @@ export async function placeOptionOrder(params: {
       ...(params.limit_price ? { limit_price: params.limit_price } : {}),
     }),
   })
+  // Clear cache after placing order
+  memCache.delete("/v2/account")
+  memCache.delete("/v2/positions")
+  memCache.delete("/v2/orders?status=all&limit=50&direction=desc")
+  return result
 }
 
 export async function cancelOrder(id: string) {
-  const res = await fetch(`${BASE}/v2/orders/${id}`, { method: "DELETE", headers: headers(), cache: "no-store" })
+  const res = await fetch(`${BASE}/v2/orders/${id}`, { method: "DELETE", headers: headers() })
+  // Clear orders cache after cancel
+  memCache.delete("/v2/orders?status=all&limit=50&direction=desc")
+  memCache.delete("/v2/orders?status=open&limit=50&direction=desc")
   return res.ok
 }
 
