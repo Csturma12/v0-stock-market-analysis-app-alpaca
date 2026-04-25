@@ -5,7 +5,7 @@ import { z } from "zod"
 const OptionsPlaySchema = z.object({
   ticker: z.string(),
   strategy: z.enum(["CALL_SPREAD", "PUT_SPREAD", "IRON_CONDOR", "STRANGLE", "BUTTERFLY", "NO_PLAY"]),
-  expiry: z.enum(["DAILY", "WEEKLY", "MONTHLY"]),
+  expiry: z.enum(["DAILY", "WEEKLY", "MONTHLY", "YEARLY"]),
   long_strike: z.number().nullable(),
   short_strike: z.number().nullable(),
   max_profit: z.number().nullable(),
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
 
 ALWAYS provide an options play analysis. Even if you don't recommend it, fill out all fields with what the trade WOULD be, then explain concerns in the reason field.
 
-Based on the provided market data, generate a structured options play (${expiry} expiry preferred).
+Based on the provided market data, generate a structured options play (${expiry} expiry preferred). If the stock has ${expiry} options available, prioritize them; otherwise suggest the closest available expiry.
 
 Guidelines:
 - Paper trading only — educational and analysis purposes

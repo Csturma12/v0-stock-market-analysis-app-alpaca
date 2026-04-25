@@ -8,7 +8,7 @@ import { useStagedTrades } from "@/lib/staged-trade-context"
 type OptionsPlay = {
   ticker: string
   strategy: "CALL_SPREAD" | "PUT_SPREAD" | "IRON_CONDOR" | "STRANGLE" | "BUTTERFLY" | "NO_PLAY"
-  expiry: "DAILY" | "WEEKLY" | "MONTHLY"
+  expiry: "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY"
   long_strike: number | null
   short_strike: number | null
   max_profit: number | null
@@ -23,7 +23,7 @@ type OptionsPlay = {
 
 export function AIOptionsPlayGenerator() {
   const [context, setContext] = useState("")
-  const [expiry, setExpiry] = useState<"DAILY" | "WEEKLY" | "MONTHLY">("WEEKLY")
+  const [expiry, setExpiry] = useState<"DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY">("WEEKLY")
   
   // Claude state
   const [claudePlay, setClaudePlay] = useState<OptionsPlay | null>(null)
@@ -247,12 +247,13 @@ export function AIOptionsPlayGenerator() {
       <div className="mb-4 flex gap-2">
         <select
           value={expiry}
-          onChange={(e) => setExpiry(e.target.value as "DAILY" | "WEEKLY" | "MONTHLY")}
+          onChange={(e) => setExpiry(e.target.value as "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY")}
           className="flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-sm font-mono"
         >
           <option value="DAILY">Daily (0-1 DTE)</option>
-          <option value="WEEKLY">Weekly (2-7 DTE)</option>
-          <option value="MONTHLY">Monthly (14-45 DTE)</option>
+        <option value="WEEKLY">Weekly (2-7 DTE)</option>
+        <option value="MONTHLY">Monthly (14-45 DTE)</option>
+        <option value="YEARLY">Yearly (200+ DTE)</option>
         </select>
         <button
           onClick={generateBoth}
