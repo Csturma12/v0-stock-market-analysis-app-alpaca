@@ -6,7 +6,7 @@ import { z } from "zod"
 const OptionsPlaySchema = z.object({
   ticker: z.string(),
   strategy: z.enum(["CALL_SPREAD", "PUT_SPREAD", "IRON_CONDOR", "STRANGLE", "BUTTERFLY", "NO_PLAY"]),
-  expiry: z.enum(["DAILY", "WEEKLY", "MONTHLY"]),
+  expiry: z.enum(["DAILY", "WEEKLY", "MONTHLY", "YEARLY"]),
   long_strike: z.number().nullable(),
   short_strike: z.number().nullable(),
   max_profit: z.number().nullable(),
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
       schema: OptionsPlaySchema,
       prompt: `You are an options play generator for an autonomous trading platform analyzing paper trading opportunities.
 
-Based on the provided market data, generate a structured options play (${expiry} expiry preferred).
+Based on the provided market data, generate a structured options play (${expiry} expiry preferred). If the stock has ${expiry} options available, prioritize them; otherwise suggest the closest available expiry.
 
 Rules:
 - Paper trading only — educational and analysis purposes.

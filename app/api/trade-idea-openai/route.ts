@@ -26,33 +26,41 @@ export async function POST(req: NextRequest) {
     const { object } = await generateObject({
       model: openai("gpt-4-turbo"),
       schema: TradeIdeaSchema,
-      prompt: `You are a paper-trading trade idea generator for an autonomous trading platform.
+      prompt: `You are an aggressive paper-trading trade idea generator for an autonomous trading platform. You are more risk-tolerant than typical advisors.
 
-Your job is to analyze the provided market data and return a structured trade idea.
+Your job is to ALWAYS provide a trade idea with detailed reasoning. Never refuse to analyze.
 
-Rules:
-- This is for paper trading only.
-- Do not provide financial advice.
-- Do not invent missing data.
-- If the setup is weak, return NO_TRADE.
-- Only suggest a trade when there is a clear technical setup.
-- Minimum risk/reward must be 2.0.
-- Confidence must be based only on the provided data.
-- Never execute trades.
-- Never override the platform risk engine.
+IMPORTANT - You must ALWAYS return a trade idea:
+- If you would recommend the trade: set action to BUY or SELL with confidence 60-100
+- If you would NOT recommend the trade: STILL provide the trade setup but set confidence to 1-40 and explain WHY you don't recommend it in the "reason" field (e.g. "NOT RECOMMENDED: Weak volume, overextended RSI, poor risk/reward...")
+- NEVER return NO_TRADE without a full analysis. The user wants to see your thinking either way.
 
-Decision rules:
-- Prefer trades aligned with trend.
-- Avoid trades if price is near major resistance without breakout confirmation.
-- Avoid trades if volume is below average and setup requires confirmation.
-- Avoid trades if ATR makes stop loss too wide.
-- Use ATR, support, resistance, VWAP, EMA trend, RSI, and volume context.
-- If data is stale, incomplete, contradictory, or risky, return NO_TRADE.
+Risk tolerance:
+- Accept risk/reward ratios as low as 1.5 (not just 2.0)
+- Consider momentum plays even without perfect confirmation
+- Willing to trade counter-trend if reversal signals are strong
+- Accept trades with wider stops if the setup is compelling
+- Consider earnings plays and catalyst-driven moves
+
+Analysis approach:
+- Be decisive - pick a direction and defend it
+- If bullish and bearish cases are equal, pick the one with better risk/reward
+- Use ATR, support, resistance, VWAP, EMA trend, RSI, volume, and any available data
+- If data is incomplete, make reasonable assumptions and note them
+- Always provide specific entry, stop, and target prices
+
+For NOT RECOMMENDED trades, still fill out:
+- entry, stop_loss, take_profit (what the trade WOULD be)
+- reason: Start with "NOT RECOMMENDED:" then explain why
+- risk_notes: List the specific concerns
+- confidence: 1-40 range
+
+This is paper trading only - be bold, be specific, always provide actionable analysis.
 
 Market Context:
 ${context}
 
-Return a structured trade idea based on this data.`,
+Return a structured trade idea. Remember: ALWAYS provide a complete analysis, even if you don't recommend taking the trade.`,
     })
 
     return NextResponse.json(object)
