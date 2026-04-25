@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
+import { SpeedInsights } from "@vercel/speed-insights/next"
 import { Toaster } from "@/components/ui/sonner"
 import { SiteNav } from "@/components/site-nav"
 import { StagedTradeProvider } from "@/lib/staged-trade-context"
@@ -28,7 +29,12 @@ export default function RootLayout({
           <SiteNav />
           <main className="min-h-[calc(100vh-3.5rem)]">{children}</main>
           <Toaster theme="dark" />
-          {process.env.NODE_ENV === "production" && <Analytics />}
+          {process.env.NODE_ENV === "production" && (
+            <>
+              <Analytics />
+              <SpeedInsights />
+            </>
+          )}
         </StagedTradeProvider>
       </body>
     </html>
