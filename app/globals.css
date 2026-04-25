@@ -255,6 +255,19 @@
   min-height: 0;
 }
 
+/* News marquee in ticker header */
+@keyframes marquee-scroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.news-marquee {
+  animation: marquee-scroll 60s linear infinite;
+  will-change: transform;
+}
+.news-marquee:hover {
+  animation-play-state: paused;
+}
+
 /* Key Metrics container overrides per design refinement */
 .key-metrics-container {
   font-size: 8px;

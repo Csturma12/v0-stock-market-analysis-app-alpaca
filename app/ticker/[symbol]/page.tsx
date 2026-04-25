@@ -5,7 +5,6 @@ import { TickerChart } from "@/components/ticker-chart"
 import { TickerFundamentals } from "@/components/ticker-fundamentals"
 import { TickerTechnicals } from "@/components/ticker-technicals"
 import { TickerAnalystRatings } from "@/components/ticker-analyst-ratings"
-import { TickerNews } from "@/components/ticker-news"
 import { TickerDarkPool } from "@/components/ticker-dark-pool"
 import { TickerPatterns } from "@/components/ticker-patterns"
 import { TradeIdeaPanel } from "@/components/trade-idea-panel"
@@ -82,32 +81,26 @@ export default async function TickerPage({ params }: { params: Promise<{ symbol:
       id: "catalysts",
       title: "Catalysts & Risks",
       content: <TickerCatalystsRisks symbol={sym} />,
-      defaultLayout: { x: 0, y: 26, w: 6, h: 6, minW: 3, minH: 4 },
-    },
-    {
-      id: "news",
-      title: "News",
-      content: <TickerNews symbol={sym} />,
-      defaultLayout: { x: 6, y: 26, w: 6, h: 8, minW: 4, minH: 4 },
+      defaultLayout: { x: 0, y: 26, w: 12, h: 6, minW: 3, minH: 4 },
     },
   ]
 
   return (
-    <main className="mx-auto max-w-[1600px] px-4 py-4 md:px-6">
+    <main className="mx-auto max-w-[1600px] px-4 pt-2 pb-4 md:px-6">
       <Link
         href="/"
-        className="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="mb-2 inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         <ChevronLeft className="h-4 w-4" />
         Back
       </Link>
 
-      {/* Ticker header */}
+      {/* Compact header: ticker info + scrolling news */}
       <TickerHeader symbol={sym} />
 
       {/* Free-form draggable + resizable widget grid */}
-      <div className="mt-4">
-        <AnalysisLayout widgets={widgets} storageKey={`analysis:grid:v3:${sym}`} />
+      <div className="mt-2">
+        <AnalysisLayout widgets={widgets} storageKey={`analysis:grid:v4:${sym}`} />
       </div>
     </main>
   )

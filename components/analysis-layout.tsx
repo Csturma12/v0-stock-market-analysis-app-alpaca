@@ -91,14 +91,15 @@ export function AnalysisLayout({
 
   return (
     <div className="w-full">
-      <div className="mb-2 flex items-center justify-between">
+      <div className="mb-2 flex items-center gap-3">
         <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
           Drag headers to move · Drag edges to resize
         </p>
+        <span className="text-muted-foreground/40">·</span>
         <button
           type="button"
           onClick={handleReset}
-          className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1 font-mono text-[11px] uppercase tracking-wider text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
         >
           <RotateCcw className="h-3 w-3" />
           Reset Layout
