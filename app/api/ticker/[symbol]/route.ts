@@ -23,7 +23,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ symbol:
     getPriceTarget(sym),
     getInsiderSentiment(sym),
     getTickerDetails(sym),
-    getAggregates(sym, 250), // ~1 year for 200-day SMA + weekly/monthly ranges
+    getAggregates(sym, 365), // ~1 year for 200-day SMA (need 280+ calendar days for 200 trading days)
   ])
 
   const closes = candles.map((c) => c.close)
