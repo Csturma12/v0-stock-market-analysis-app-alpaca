@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { cn } from "@/lib/utils"
-import { Sparkles, TrendingUp, TrendingDown, Minus, Shield, Target } from "lucide-react"
+import { Sparkles, TrendingUp, TrendingDown, Minus, Shield, Target, Brain } from "lucide-react"
 
 type Leg = {
   action: "buy" | "sell"
@@ -24,7 +24,7 @@ type Play = {
   netDebitCredit?: number | null
 }
 
-type Idea = {
+type ClaudeIdea = {
   thesis: string
   direction: "long" | "short" | "neutral"
   conviction: number
@@ -36,6 +36,22 @@ type Idea = {
   catalysts: string[]
   keyMetrics: { label: string; value: string }[]
   plays?: Play[]
+}
+
+type OpenAIIdea = {
+  ticker: string
+  action: "BUY" | "SELL" | "NO_TRADE"
+  setup_type: string
+  entry: number | null
+  stop_loss: number | null
+  take_profit: number | null
+  risk_reward: number | null
+  confidence: number
+  position_bias: "bullish" | "bearish" | "neutral"
+  reason: string
+  invalid_if: string
+  risk_notes: string[]
+  execution_notes: string[]
 }
 
 const STRATEGY_LABELS: Record<string, string> = {
@@ -53,22 +69,43 @@ const STRATEGY_LABELS: Record<string, string> = {
 }
 
 export function TradeIdeaPanel({ symbol }: { symbol: string }) {
-  const [idea, setIdea] = useState<Idea | null>(null)
+  const [claudeIdea, setClaudeIdea] = useState<ClaudeIdea | null>(null)
+  const [openaiIdea, setOpenaiIdea] = useState<OpenAIIdea | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   async function generate() {
     setLoading(true)
     setError(null)
+    setClaudeIdea(null)
+    setOpenaiIdea(null)
+
     try {
-      const res = await fetch("/api/trade-idea", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ symbol }),
-      })
-      const data = await res.json()
-      if (data.error) setError(data.error)
-      else setIdea(data.idea)
+      // Fetch both Claude and OpenAI ideas in parallel
+      const [claudeRes, openaiRes] = await Promise.all([
+        fetch("/api/trade-idea", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ symbol }),
+        }),
+        fetch("/api/trade-idea-openai", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ symbol }),
+        }),
+      ])
+
+      const [claudeData, openaiData] = await Promise.all([
+        claudeRes.json(),
+        openaiRes.json(),
+      ])
+
+      if (claudeData.error && openaiData.error) {
+        setError("Both AI models failed to generate ideas")
+      } else {
+        if (claudeData.idea) setClaudeIdea(claudeData.idea)
+        if (!openaiData.error) setOpenaiIdea(openaiData)
+      }
     } catch (e: any) {
       setError(e.message)
     } finally {
@@ -76,235 +113,213 @@ export function TradeIdeaPanel({ symbol }: { symbol: string }) {
     }
   }
 
-  const directionIcon = idea?.direction === "long" ? TrendingUp : idea?.direction === "short" ? TrendingDown : Minus
-  const Icon = directionIcon
-  const dirColor =
-    idea?.direction === "long"
-      ? "text-[color:var(--color-bull)]"
-      : idea?.direction === "short"
-        ? "text-[color:var(--color-bear)]"
-        : "text-muted-foreground"
-
-  const reward = idea ? Math.abs(idea.target - idea.entry) : 0
-  const risk = idea ? Math.abs(idea.entry - idea.stopLoss) : 0
-  const rr = risk > 0 ? reward / risk : 0
+  const hasIdeas = claudeIdea || openaiIdea
 
   return (
-    <div className="rounded-lg border border-border bg-card p-5">
-      <div className="mb-4 flex items-center justify-between gap-4">
+    <div className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-primary" />
-          <h3 className="text-base font-semibold">AI Trade Idea</h3>
-          <span className="font-mono text-xs uppercase tracking-widest text-muted-foreground">Claude Opus</span>
+          <h3 className="text-sm font-semibold">AI Trade Idea</h3>
         </div>
         <button
           onClick={generate}
           disabled={loading}
-          className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+          className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
         >
-          {loading ? "Analyzing…" : idea ? "Regenerate" : "Generate"}
+          {loading ? "Analyzing…" : hasIdeas ? "Regenerate" : "Generate"}
         </button>
       </div>
 
-      {error && (
-        <div className="rounded-md bg-[color:var(--color-bear)]/10 p-3 text-sm text-[color:var(--color-bear)]">
-          {error}
-        </div>
-      )}
-
-      {!idea && !loading && !error && (
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          Run a full agentic analysis: fundamentals + technicals + news + options chain + institutional flow + memory of
-          your past trades on <span className="font-mono">{symbol}</span>. Output includes stock levels and structured
-          options plays with hedges when the setup is risky.
-        </p>
-      )}
-
-      {loading && (
-        <div className="flex flex-col gap-2 py-4 text-sm text-muted-foreground">
-          <span>Gathering Polygon snapshot &amp; options chain…</span>
-          <span>Pulling Finnhub fundamentals &amp; consensus…</span>
-          <span>Pulling Unusual Whales dark pool + flow…</span>
-          <span>Searching web via Tavily…</span>
-          <span>Loading past-trade memory…</span>
-          <span>Asking Claude to synthesize + structure plays…</span>
-        </div>
-      )}
-
-      {idea && (
-        <div className="flex flex-col gap-5">
-          <div className="flex flex-wrap items-center gap-3">
-            <span
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 font-mono text-xs uppercase tracking-widest",
-                idea.direction === "long" && "border-[color:var(--color-bull)]/40 bg-[color:var(--color-bull)]/10",
-                idea.direction === "short" && "border-[color:var(--color-bear)]/40 bg-[color:var(--color-bear)]/10",
-                idea.direction === "neutral" && "border-border bg-muted",
-                dirColor,
-              )}
-            >
-              <Icon className="h-3.5 w-3.5" />
-              {idea.direction}
-            </span>
-            <span className="font-mono text-xs uppercase tracking-widest text-muted-foreground">{idea.timeframe}</span>
-            <span className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
-              Conviction {idea.conviction}/10
-            </span>
-            <span className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
-              R:R {rr.toFixed(2)}
-            </span>
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto p-4">
+        {error && (
+          <div className="rounded-md bg-[color:var(--color-bear)]/10 p-3 text-sm text-[color:var(--color-bear)]">
+            {error}
           </div>
+        )}
 
-          <p className="text-pretty leading-relaxed">{idea.thesis}</p>
+        {!hasIdeas && !loading && !error && (
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            Run a full agentic analysis: fundamentals + technicals + news + options chain + institutional flow. 
+            Click Generate to get trade ideas from both <span className="font-semibold text-purple-400">Claude</span> and <span className="font-semibold text-emerald-400">OpenAI</span>.
+          </p>
+        )}
 
-          <div className="grid grid-cols-3 gap-3">
-            <Cell label="Entry" value={`$${idea.entry.toFixed(2)}`} />
-            <Cell label="Stop" value={`$${idea.stopLoss.toFixed(2)}`} color="text-[color:var(--color-bear)]" />
-            <Cell label="Target" value={`$${idea.target.toFixed(2)}`} color="text-[color:var(--color-bull)]" />
+        {loading && (
+          <div className="flex flex-col gap-2 py-4 text-xs text-muted-foreground">
+            <span>Gathering Polygon snapshot & options chain…</span>
+            <span>Pulling Finnhub fundamentals & consensus…</span>
+            <span>Pulling Unusual Whales dark pool + flow…</span>
+            <span>Searching web via Tavily…</span>
+            <span>Asking Claude & OpenAI to synthesize…</span>
           </div>
+        )}
 
-          {idea.plays && idea.plays.length > 0 && (
-            <div className="flex flex-col gap-3">
-              <h4 className="font-mono text-xs uppercase tracking-widest text-muted-foreground">Structured plays</h4>
-              <div className="flex flex-col gap-3">
-                {idea.plays.map((p, idx) => (
-                  <PlayCard key={idx} symbol={symbol} play={p} />
-                ))}
-              </div>
-            </div>
+        {hasIdeas && (
+          <div className="flex flex-col gap-4">
+            {/* Claude Idea */}
+            {claudeIdea && (
+              <ClaudeIdeaCard symbol={symbol} idea={claudeIdea} />
+            )}
+
+            {/* OpenAI Idea */}
+            {openaiIdea && (
+              <OpenAIIdeaCard idea={openaiIdea} />
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function ClaudeIdeaCard({ symbol, idea }: { symbol: string; idea: ClaudeIdea }) {
+  const directionIcon = idea.direction === "long" ? TrendingUp : idea.direction === "short" ? TrendingDown : Minus
+  const Icon = directionIcon
+  const dirColor =
+    idea.direction === "long"
+      ? "text-[color:var(--color-bull)]"
+      : idea.direction === "short"
+        ? "text-[color:var(--color-bear)]"
+        : "text-muted-foreground"
+
+  const reward = Math.abs(idea.target - idea.entry)
+  const risk = Math.abs(idea.entry - idea.stopLoss)
+  const rr = risk > 0 ? reward / risk : 0
+
+  return (
+    <div className="rounded-lg border border-purple-500/30 bg-purple-500/5 p-3">
+      <div className="mb-2 flex items-center gap-2">
+        <Brain className="h-4 w-4 text-purple-400" />
+        <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-purple-400">Claude Opus</span>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 mb-2">
+        <span
+          className={cn(
+            "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest",
+            idea.direction === "long" && "border-[color:var(--color-bull)]/40 bg-[color:var(--color-bull)]/10",
+            idea.direction === "short" && "border-[color:var(--color-bear)]/40 bg-[color:var(--color-bear)]/10",
+            idea.direction === "neutral" && "border-border bg-muted",
+            dirColor,
           )}
+        >
+          <Icon className="h-3 w-3" />
+          {idea.direction}
+        </span>
+        <span className="font-mono text-[10px] text-muted-foreground">{idea.timeframe}</span>
+        <span className="font-mono text-[10px] text-muted-foreground">Conv: {idea.conviction}/10</span>
+        <span className="font-mono text-[10px] text-muted-foreground">R:R {rr.toFixed(1)}</span>
+      </div>
 
-          {(() => {
-            const side = idea.direction === "short" ? "sell" : "buy"
-            const suggestedQty = Math.max(1, Math.floor(500 / Math.max(idea.entry, 1)))
-            const params = new URLSearchParams({
-              symbol,
-              side,
-              qty: String(suggestedQty),
-              type: "limit",
-              limit: idea.entry.toFixed(2),
-              stop: idea.stopLoss.toFixed(2),
-              target: idea.target.toFixed(2),
-              thesis: idea.thesis.slice(0, 180),
-            })
-            return (
-              <a
-                href={`/trading?${params.toString()}`}
-                className="inline-flex w-fit items-center gap-2 rounded-md border border-primary/50 bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-primary/20"
-              >
-                Stage stock leg: {side.toUpperCase()} {suggestedQty} {symbol} @ ${idea.entry.toFixed(2)} →
-              </a>
-            )
-          })()}
+      <p className="text-xs leading-relaxed text-foreground/90 mb-3">{idea.thesis}</p>
+
+      <div className="grid grid-cols-3 gap-2 mb-3">
+        <MiniCell label="Entry" value={`$${idea.entry.toFixed(2)}`} />
+        <MiniCell label="Stop" value={`$${idea.stopLoss.toFixed(2)}`} color="text-[color:var(--color-bear)]" />
+        <MiniCell label="Target" value={`$${idea.target.toFixed(2)}`} color="text-[color:var(--color-bull)]" />
+      </div>
+
+      {idea.plays && idea.plays.length > 0 && (
+        <div className="space-y-2">
+          <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Plays</span>
+          {idea.plays.map((p, idx) => (
+            <MiniPlayCard key={idx} symbol={symbol} play={p} />
+          ))}
         </div>
       )}
     </div>
   )
 }
 
-function PlayCard({ symbol, play }: { symbol: string; play: Play }) {
+function OpenAIIdeaCard({ idea }: { idea: OpenAIIdea }) {
+  const isBullish = idea.position_bias === "bullish"
+  const isBearish = idea.position_bias === "bearish"
+
+  return (
+    <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3">
+      <div className="mb-2 flex items-center gap-2">
+        <Sparkles className="h-4 w-4 text-emerald-400" />
+        <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-emerald-400">OpenAI GPT-4</span>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 mb-2">
+        <span
+          className={cn(
+            "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest",
+            isBullish && "border-[color:var(--color-bull)]/40 bg-[color:var(--color-bull)]/10 text-[color:var(--color-bull)]",
+            isBearish && "border-[color:var(--color-bear)]/40 bg-[color:var(--color-bear)]/10 text-[color:var(--color-bear)]",
+            !isBullish && !isBearish && "border-border bg-muted text-muted-foreground",
+          )}
+        >
+          {isBullish ? <TrendingUp className="h-3 w-3" /> : isBearish ? <TrendingDown className="h-3 w-3" /> : <Minus className="h-3 w-3" />}
+          {idea.action}
+        </span>
+        <span className="font-mono text-[10px] text-muted-foreground">{idea.setup_type}</span>
+        <span className="font-mono text-[10px] text-muted-foreground">Conf: {idea.confidence}%</span>
+        {idea.risk_reward && (
+          <span className="font-mono text-[10px] text-muted-foreground">R:R {idea.risk_reward.toFixed(1)}</span>
+        )}
+      </div>
+
+      <p className="text-xs leading-relaxed text-foreground/90 mb-3">{idea.reason}</p>
+
+      {(idea.entry || idea.stop_loss || idea.take_profit) && (
+        <div className="grid grid-cols-3 gap-2 mb-3">
+          <MiniCell label="Entry" value={idea.entry ? `$${idea.entry.toFixed(2)}` : "—"} />
+          <MiniCell label="Stop" value={idea.stop_loss ? `$${idea.stop_loss.toFixed(2)}` : "—"} color="text-[color:var(--color-bear)]" />
+          <MiniCell label="Target" value={idea.take_profit ? `$${idea.take_profit.toFixed(2)}` : "—"} color="text-[color:var(--color-bull)]" />
+        </div>
+      )}
+
+      {idea.risk_notes && idea.risk_notes.length > 0 && (
+        <div className="text-[10px] text-muted-foreground">
+          <span className="font-semibold">Risks:</span> {idea.risk_notes.slice(0, 2).join("; ")}
+        </div>
+      )}
+
+      {idea.invalid_if && (
+        <div className="mt-1 text-[10px] text-amber-400">
+          <span className="font-semibold">Invalid if:</span> {idea.invalid_if}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function MiniPlayCard({ symbol, play }: { symbol: string; play: Play }) {
   const isHedge = play.role === "hedge"
   const RoleIcon = isHedge ? Shield : Target
   return (
     <div
       className={cn(
-        "flex flex-col gap-3 rounded-md border p-4",
-        isHedge
-          ? "border-amber-400/40 bg-amber-400/5"
-          : "border-primary/40 bg-primary/5",
+        "rounded-md border p-2 text-xs",
+        isHedge ? "border-amber-400/30 bg-amber-400/5" : "border-primary/30 bg-primary/5",
       )}
     >
-      <div className="flex flex-wrap items-center gap-2">
-        <RoleIcon
-          className={cn("h-4 w-4", isHedge ? "text-amber-400" : "text-primary")}
-        />
-        <span
-          className={cn(
-            "font-mono text-[10px] uppercase tracking-widest",
-            isHedge ? "text-amber-400" : "text-primary",
-          )}
-        >
+      <div className="flex items-center gap-2 mb-1">
+        <RoleIcon className={cn("h-3 w-3", isHedge ? "text-amber-400" : "text-primary")} />
+        <span className={cn("font-mono text-[9px] uppercase", isHedge ? "text-amber-400" : "text-primary")}>
           {play.role}
         </span>
-        <span className="font-semibold">{STRATEGY_LABELS[play.strategy] ?? play.strategy}</span>
-        {play.netDebitCredit != null && (
-          <span className="ml-auto font-mono text-xs tabular-nums text-muted-foreground">
-            {play.netDebitCredit >= 0
-              ? `Debit $${Math.abs(play.netDebitCredit).toFixed(2)}`
-              : `Credit $${Math.abs(play.netDebitCredit).toFixed(2)}`}
-          </span>
-        )}
+        <span className="font-medium">{STRATEGY_LABELS[play.strategy] ?? play.strategy}</span>
       </div>
-
-      <p className="text-sm leading-relaxed text-muted-foreground">{play.thesis}</p>
-
-      <div className="flex flex-col gap-1.5 rounded-md border border-border/60 bg-background p-3 font-mono text-xs">
-        {play.legs.map((leg, i) => (
-          <div key={i} className="flex flex-wrap items-center gap-2 tabular-nums">
-            <span
-              className={cn(
-                "rounded-sm px-1.5 py-0.5 text-[10px] uppercase tracking-widest",
-                leg.action === "buy"
-                  ? "bg-[color:var(--color-bull)]/15 text-[color:var(--color-bull)]"
-                  : "bg-[color:var(--color-bear)]/15 text-[color:var(--color-bear)]",
-              )}
-            >
-              {leg.action}
-            </span>
-            <span className="text-muted-foreground">{leg.qty}x</span>
-            <span className="font-semibold">{symbol}</span>
-            {leg.instrument !== "stock" && (
-              <>
-                <span>${leg.strike}</span>
-                <span className="uppercase">{leg.instrument}</span>
-                <span className="text-muted-foreground">{leg.expiry}</span>
-              </>
-            )}
-            {leg.limitPrice != null && (
-              <span className="ml-auto text-muted-foreground">@ ${leg.limitPrice.toFixed(2)}</span>
-            )}
-          </div>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-3 gap-2 text-xs">
-        <StatCell label="Max loss" value={play.maxLoss} />
-        <StatCell label="Max gain" value={play.maxGain} />
-        <StatCell label="Breakeven" value={play.breakeven} />
+      <p className="text-[10px] text-muted-foreground leading-relaxed">{play.thesis}</p>
+      <div className="mt-1 flex gap-2 text-[9px] text-muted-foreground">
+        <span>Max Loss: {play.maxLoss}</span>
+        <span>Max Gain: {play.maxGain}</span>
       </div>
     </div>
   )
 }
 
-function StatCell({ label, value }: { label: string; value: string }) {
+function MiniCell({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
-    <div className="flex flex-col gap-0.5 rounded-sm border border-border/50 bg-background px-2 py-1.5">
-      <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">{label}</span>
-      <span className="font-mono text-xs font-medium tabular-nums">{value}</span>
-    </div>
-  )
-}
-
-function Cell({ label, value, color }: { label: string; value: string; color?: string }) {
-  return (
-    <div className="flex flex-col gap-1 rounded-md border border-border/60 bg-background px-3 py-2.5">
-      <span className="font-mono text-xs uppercase tracking-widest text-muted-foreground">{label}</span>
-      <span className={cn("font-mono text-lg font-semibold tabular-nums", color)}>{value}</span>
-    </div>
-  )
-}
-function Block({ title, items }: { title: string; items: string[] }) {
-  return (
-    <div className="flex flex-col gap-2">
-      <h4 className="font-mono text-xs uppercase tracking-widest text-muted-foreground">{title}</h4>
-      <ul className="flex flex-col gap-1.5">
-        {items.map((i, idx) => (
-          <li key={idx} className="flex gap-2 text-sm leading-relaxed">
-            <span className="text-muted-foreground">·</span>
-            <span className="text-pretty">{i}</span>
-          </li>
-        ))}
-      </ul>
+    <div className="flex flex-col gap-0.5 rounded-md border border-border/50 bg-background px-2 py-1.5">
+      <span className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">{label}</span>
+      <span className={cn("font-mono text-sm font-semibold tabular-nums", color)}>{value}</span>
     </div>
   )
 }
