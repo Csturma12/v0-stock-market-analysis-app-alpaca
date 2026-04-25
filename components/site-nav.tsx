@@ -2,6 +2,7 @@ import Link from "next/link"
 import { Activity, LineChart, TrendingUp } from "lucide-react"
 import { MarketStatusBadge } from "./market-status-badge"
 import { TickerSearch } from "./ticker-search"
+import { FullscreenToggle } from "./fullscreen-toggle"
 
 export function SiteNav() {
   return (
@@ -34,8 +35,9 @@ export function SiteNav() {
         <div className="flex-1 flex justify-center px-2 sm:px-4">
           <TickerSearch />
         </div>
-        <div className="shrink-0">
+        <div className="flex shrink-0 items-center gap-2">
           <MarketStatusBadge />
+          <FullscreenToggle />
         </div>
       </div>
     </header>

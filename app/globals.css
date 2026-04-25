@@ -129,3 +129,128 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* react-grid-layout core styles (inlined to avoid extra global imports) */
+.react-grid-layout {
+  position: relative;
+  transition: height 200ms ease;
+}
+.react-grid-item {
+  transition: all 200ms ease;
+  transition-property: left, top, width, height;
+  box-sizing: border-box;
+}
+.react-grid-item.cssTransforms {
+  transition-property: transform, width, height;
+}
+.react-grid-item.resizing {
+  z-index: 3;
+  will-change: width, height;
+  opacity: 0.9;
+}
+.react-grid-item.react-draggable-dragging {
+  transition: none;
+  z-index: 3;
+  will-change: transform;
+  cursor: grabbing !important;
+}
+.react-grid-item.react-grid-placeholder {
+  background: var(--primary);
+  opacity: 0.15;
+  border-radius: var(--radius);
+  transition-duration: 100ms;
+  z-index: 2;
+  user-select: none;
+}
+.react-grid-item > .react-resizable-handle {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  bottom: 0;
+  right: 0;
+  cursor: se-resize;
+  background: transparent;
+}
+.react-grid-item > .react-resizable-handle::after {
+  content: "";
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 6px;
+  height: 6px;
+  border-right: 2px solid var(--muted-foreground);
+  border-bottom: 2px solid var(--muted-foreground);
+  opacity: 0.6;
+}
+.react-grid-item > .react-resizable-handle.react-resizable-handle-n,
+.react-grid-item > .react-resizable-handle.react-resizable-handle-s {
+  left: 50%;
+  width: 32px;
+  height: 8px;
+  margin-left: -16px;
+  cursor: ns-resize;
+}
+.react-grid-item > .react-resizable-handle.react-resizable-handle-n { top: 0; bottom: auto; }
+.react-grid-item > .react-resizable-handle.react-resizable-handle-s { bottom: 0; }
+.react-grid-item > .react-resizable-handle.react-resizable-handle-e,
+.react-grid-item > .react-resizable-handle.react-resizable-handle-w {
+  top: 50%;
+  width: 8px;
+  height: 32px;
+  margin-top: -16px;
+  cursor: ew-resize;
+}
+.react-grid-item > .react-resizable-handle.react-resizable-handle-e { right: 0; }
+.react-grid-item > .react-resizable-handle.react-resizable-handle-w { left: 0; }
+.react-grid-item > .react-resizable-handle.react-resizable-handle-ne { top: 0; right: 0; cursor: ne-resize; }
+.react-grid-item > .react-resizable-handle.react-resizable-handle-nw { top: 0; left: 0; cursor: nw-resize; }
+.react-grid-item > .react-resizable-handle.react-resizable-handle-sw { bottom: 0; left: 0; cursor: sw-resize; }
+.react-grid-item > .react-resizable-handle.react-resizable-handle-n::after,
+.react-grid-item > .react-resizable-handle.react-resizable-handle-s::after,
+.react-grid-item > .react-resizable-handle.react-resizable-handle-e::after,
+.react-grid-item > .react-resizable-handle.react-resizable-handle-w::after,
+.react-grid-item > .react-resizable-handle.react-resizable-handle-ne::after,
+.react-grid-item > .react-resizable-handle.react-resizable-handle-nw::after,
+.react-grid-item > .react-resizable-handle.react-resizable-handle-sw::after {
+  display: none;
+}
+
+/* Pill-box widget chrome */
+.widget-pill {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.widget-pill__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in oklch, var(--card) 92%, var(--foreground) 8%);
+  cursor: grab;
+  user-select: none;
+  flex-shrink: 0;
+}
+.widget-pill__header:active {
+  cursor: grabbing;
+}
+.widget-pill__title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted-foreground);
+}
+.widget-pill__body {
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 0.5rem;
+  min-height: 0;
+}
