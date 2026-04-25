@@ -26,11 +26,15 @@ function timeAgo(dateStr: string) {
 }
 
 export function TickerNews({ symbol }: { symbol: string }) {
-  // Key includes symbol so SWR refetches immediately whenever the ticker changes
+  // SWR key includes the uppercased symbol — changing ticker = new key = immediate refetch
   const { data, isLoading } = useSWR<{ data: NewsItem[] }>(
     symbol ? `/api/news?tickers=${symbol.toUpperCase()}&category=all` : null,
     fetcher,
-    { revalidateOnFocus: false, dedupingInterval: 30_000 }
+    {
+      revalidateOnMount: true,    // always fetch fresh on mount/symbol change
+      revalidateOnFocus: false,
+      dedupingInterval: 30_000,   // same symbol re-requested within 30s uses cache
+    }
   )
 
   const articles = (data?.data ?? []).slice(0, 10)

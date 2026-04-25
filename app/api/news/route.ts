@@ -183,14 +183,30 @@ export async function GET(req: Request) {
     if (re) filtered = items.filter((i) => re.test(`${i.title} ${i.source} ${i.description ?? ""}`))
   }
 
-  // Dedupe by URL, sort desc
+  // Dedupe by URL
   const seen = new Set<string>()
   const deduped = filtered.filter((i) => {
     if (seen.has(i.url)) return false
     seen.add(i.url)
     return true
   })
-  deduped.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
+
+  // Score by relevance: exact ticker mention in title scores highest, then recency
+  const primaryTicker = tickers[0]?.toUpperCase() ?? ""
+  const score = (item: NewsOut): number => {
+    let s = 0
+    // Recency: newer = higher score (ms since epoch, normalized)
+    s += new Date(item.publishedAt).getTime() / 1e12
+    if (primaryTicker) {
+      const text = `${item.title} ${item.description ?? ""}`
+      // Ticker appears in title/description
+      if (text.toUpperCase().includes(primaryTicker)) s += 50
+      // Ticker is in tickers array
+      if (item.tickers?.map((t) => t.toUpperCase()).includes(primaryTicker)) s += 30
+    }
+    return s
+  }
+  deduped.sort((a, b) => score(b) - score(a))
 
   const out = deduped.slice(0, 40)
   return NextResponse.json({
