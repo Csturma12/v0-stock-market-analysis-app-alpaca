@@ -26,10 +26,11 @@ function timeAgo(dateStr: string) {
 }
 
 export function TickerNews({ symbol }: { symbol: string }) {
+  // Key includes symbol so SWR refetches immediately whenever the ticker changes
   const { data, isLoading } = useSWR<{ data: NewsItem[] }>(
-    `/api/news?tickers=${symbol}&category=all`,
+    symbol ? `/api/news?tickers=${symbol.toUpperCase()}&category=all` : null,
     fetcher,
-    { revalidateOnFocus: false, dedupingInterval: 120_000 }
+    { revalidateOnFocus: false, dedupingInterval: 30_000 }
   )
 
   const articles = (data?.data ?? []).slice(0, 10)

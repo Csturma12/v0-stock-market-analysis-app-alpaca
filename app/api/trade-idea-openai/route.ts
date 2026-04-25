@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 import { generateObject } from "ai"
-import { openai } from "@ai-sdk/openai"
 import { z } from "zod"
+import { getSnapshot, getAggregates } from "@/lib/polygon"
+import { getCompanyProfile, getBasicFinancials, getRecommendationTrends } from "@/lib/finnhub"
+import { getUnusualWhalesSummary } from "@/lib/unusual-whales"
+
+export const maxDuration = 60
 
 const TradeIdeaSchema = z.object({
   ticker: z.string(),
@@ -21,10 +25,50 @@ const TradeIdeaSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
-    const { context } = await req.json()
+    const { context, symbol } = await req.json()
+    const sym = symbol ? String(symbol).toUpperCase() : null
+
+    // Build context from real data if symbol provided
+    let fullContext = context || ""
+    
+    if (sym) {
+      const [snapshot, profile, metrics, candles, recs, uw] = await Promise.all([
+        getSnapshot(sym),
+        getCompanyProfile(sym),
+        getBasicFinancials(sym),
+        getAggregates(sym, 30),
+        getRecommendationTrends(sym),
+        getUnusualWhalesSummary(sym),
+      ])
+
+      const spot = snapshot?.price ?? 0
+      const recentCloses = candles.slice(-20).map((c) => c.close)
+      const change20 = recentCloses.length > 1 ? (recentCloses.at(-1)! / recentCloses[0] - 1) * 100 : 0
+
+      fullContext = `
+TICKER: ${sym} — ${profile?.name ?? ""}
+Price: $${spot} | Day Change: ${snapshot?.changePct?.toFixed(2) ?? "—"}% | 20d Change: ${change20.toFixed(2)}%
+
+KEY FUNDAMENTALS:
+P/E: ${metrics?.peTTM ?? "—"} | P/S: ${metrics?.psTTM ?? "—"} | Beta: ${metrics?.beta ?? "—"}
+52w High: $${metrics?.["52WeekHigh"] ?? "—"} | 52w Low: $${metrics?.["52WeekLow"] ?? "—"}
+
+ANALYST CONSENSUS: ${JSON.stringify(recs[0] ?? {}, null, 2)}
+
+DARK POOL (Unusual Whales):
+Total Size: ${uw?.darkPool?.totalSize?.toLocaleString() ?? "—"} shares
+Total Premium: $${uw?.darkPool?.totalPremium?.toLocaleString() ?? "—"}
+
+OPTIONS FLOW:
+Call Premium: $${uw?.flow?.callPremium?.toLocaleString() ?? "—"}
+Put Premium: $${uw?.flow?.putPremium?.toLocaleString() ?? "—"}
+C/P Ratio: ${uw?.flow?.callPutRatio?.toFixed(2) ?? "—"}
+Bullish: ${uw?.flow?.bullishCount ?? 0} | Bearish: ${uw?.flow?.bearishCount ?? 0}
+`.trim()
+    }
 
     const { object } = await generateObject({
-      model: openai("gpt-4-turbo"),
+      model: "openai/gpt-4-turbo",
       schema: TradeIdeaSchema,
       prompt: `You are an aggressive paper-trading trade idea generator for an autonomous trading platform. You are more risk-tolerant than typical advisors.
 
@@ -48,6 +92,7 @@ Analysis approach:
 - Use ATR, support, resistance, VWAP, EMA trend, RSI, volume, and any available data
 - If data is incomplete, make reasonable assumptions and note them
 - Always provide specific entry, stop, and target prices
+- Factor in dark pool and options flow data when available
 
 For NOT RECOMMENDED trades, still fill out:
 - entry, stop_loss, take_profit (what the trade WOULD be)
@@ -58,7 +103,7 @@ For NOT RECOMMENDED trades, still fill out:
 This is paper trading only - be bold, be specific, always provide actionable analysis.
 
 Market Context:
-${context}
+${fullContext}
 
 Return a structured trade idea. Remember: ALWAYS provide a complete analysis, even if you don't recommend taking the trade.`,
     })
