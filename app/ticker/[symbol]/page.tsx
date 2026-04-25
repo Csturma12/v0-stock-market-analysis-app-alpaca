@@ -11,6 +11,7 @@ import { TradeIdeaPanel } from "@/components/trade-idea-panel"
 import { KeyMetricsDisplay } from "@/components/key-metrics-display"
 import { TickerSupportResistance } from "@/components/ticker-support-resistance"
 import { TickerCatalystsRisks } from "@/components/ticker-catalysts-risks"
+import { TickerNews } from "@/components/ticker-news"
 import { AnalysisLayout, type Widget } from "@/components/analysis-layout"
 
 export const dynamic = "force-dynamic"
@@ -81,7 +82,13 @@ export default async function TickerPage({ params }: { params: Promise<{ symbol:
       id: "catalysts",
       title: "Catalysts & Risks",
       content: <TickerCatalystsRisks symbol={sym} />,
-      defaultLayout: { x: 0, y: 26, w: 12, h: 6, minW: 3, minH: 4 },
+      defaultLayout: { x: 0, y: 26, w: 6, h: 8, minW: 3, minH: 4 },
+    },
+    {
+      id: "news",
+      title: "News",
+      content: <TickerNews symbol={sym} />,
+      defaultLayout: { x: 6, y: 26, w: 6, h: 8, minW: 3, minH: 5 },
     },
   ]
 
@@ -100,7 +107,7 @@ export default async function TickerPage({ params }: { params: Promise<{ symbol:
 
       {/* Free-form draggable + resizable widget grid */}
       <div className="mt-2">
-        <AnalysisLayout widgets={widgets} storageKey={`analysis:grid:v5:${sym}`} />
+        <AnalysisLayout widgets={widgets} storageKey={`analysis:grid:v6:${sym}`} />
       </div>
     </main>
   )
