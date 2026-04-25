@@ -41,8 +41,8 @@ export default async function TickerPage({ params }: { params: Promise<{ symbol:
           <TickerNews symbol={sym} />
         </div>
 
-        {/* RIGHT — sidebar */}
-        <div className="flex flex-col gap-6">
+        {/* RIGHT — sidebar (sticky so it stays visible while scrolling) */}
+        <div className="flex flex-col gap-6 lg:sticky lg:top-20 lg:self-start">
           <TickerAnalystRatings symbol={sym} />
           <TickerFundamentals symbol={sym} />
           <TickerTechnicals symbol={sym} />
