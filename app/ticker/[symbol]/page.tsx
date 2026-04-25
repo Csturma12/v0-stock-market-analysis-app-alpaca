@@ -20,7 +20,7 @@ export default async function TickerPage({ params }: { params: Promise<{ symbol:
   const sym = symbol.toUpperCase()
 
   return (
-    <main className="mx-auto max-w-7xl px-4 py-8 md:px-6 md:py-10">
+    <main className="mx-auto max-w-7xl px-0.5 py-8 md:py-10">
       <Link
         href="/"
         className="mb-6 inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
