@@ -174,26 +174,6 @@ export function TradeIdeaPanel({ symbol }: { symbol: string }) {
             </div>
           )}
 
-          {/* Catalysts & Risks as inline pills */}
-          <div className="flex flex-wrap items-start gap-4">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="font-mono text-[10px] uppercase tracking-widest text-[color:var(--color-bull)]">Catalysts</span>
-              {idea.catalysts.map((c, i) => (
-                <span key={i} className="rounded-full border border-[color:var(--color-bull)]/30 bg-[color:var(--color-bull)]/10 px-2 py-0.5 text-xs text-[color:var(--color-bull)]">
-                  {c}
-                </span>
-              ))}
-            </div>
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="font-mono text-[10px] uppercase tracking-widest text-[color:var(--color-bear)]">Risks</span>
-              {idea.risks.map((r, i) => (
-                <span key={i} className="rounded-full border border-[color:var(--color-bear)]/30 bg-[color:var(--color-bear)]/10 px-2 py-0.5 text-xs text-[color:var(--color-bear)]">
-                  {r}
-                </span>
-              ))}
-            </div>
-          </div>
-
           {(() => {
             const side = idea.direction === "short" ? "sell" : "buy"
             const suggestedQty = Math.max(1, Math.floor(500 / Math.max(idea.entry, 1)))
