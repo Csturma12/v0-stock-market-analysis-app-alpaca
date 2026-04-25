@@ -261,7 +261,7 @@
   100% { transform: translateX(-50%); }
 }
 .news-marquee {
-  animation: marquee-scroll 60s linear infinite;
+  animation: marquee-scroll 25s linear infinite;
   will-change: transform;
 }
 .news-marquee:hover {

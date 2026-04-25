@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react"
 import GridLayout, { WidthProvider, type Layout } from "react-grid-layout"
-import { RotateCcw } from "lucide-react"
+import { RotateCcw, Lock, Unlock } from "lucide-react"
 import { WidgetFrame } from "./widget-frame"
 
 import "react-grid-layout/css/styles.css"
@@ -42,6 +42,7 @@ export function AnalysisLayout({
 
   const [layout, setLayout] = useState<Layout[]>(defaults)
   const [hydrated, setHydrated] = useState(false)
+  const [locked, setLocked] = useState(false)
 
   // Load saved layout on mount, merging with current widget ids so newly
   // added widgets fall back to their default position.
@@ -104,6 +105,19 @@ export function AnalysisLayout({
           <RotateCcw className="h-3 w-3" />
           Reset Layout
         </button>
+        <span className="text-muted-foreground/40">·</span>
+        <button
+          type="button"
+          onClick={() => setLocked((l) => !l)}
+          className={`inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-wider transition-colors ${
+            locked
+              ? "text-amber-400 hover:text-amber-300"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          {locked ? <Lock className="h-3 w-3" /> : <Unlock className="h-3 w-3" />}
+          {locked ? "Unlock Layout" : "Lock Layout"}
+        </button>
       </div>
 
       <ReactGridLayout
@@ -117,8 +131,8 @@ export function AnalysisLayout({
         onLayoutChange={handleChange}
         compactType={null}
         preventCollision={true}
-        isResizable
-        isDraggable
+        isResizable={!locked}
+        isDraggable={!locked}
         resizeHandles={ALL_HANDLES}
       >
         {widgets.map((w) => (
