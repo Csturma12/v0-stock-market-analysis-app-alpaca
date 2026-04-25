@@ -1,81 +1,131 @@
 "use client"
 
-import type { ReactNode } from "react"
-import {
-  ResizablePanelGroup,
-  ResizablePanel,
-  ResizableHandle,
-} from "@/components/ui/resizable"
+import { useEffect, useMemo, useState, type ReactNode } from "react"
+import GridLayout, { WidthProvider, type Layout } from "react-grid-layout"
+import { RotateCcw } from "lucide-react"
+import { WidgetFrame } from "./widget-frame"
 
-type AnalysisLayoutProps = {
-  chart: ReactNode
-  topSidebar: ReactNode
-  mainContent: ReactNode
-  rightSidebar: ReactNode
+import "react-grid-layout/css/styles.css"
+import "react-resizable/css/styles.css"
+
+const ReactGridLayout = WidthProvider(GridLayout)
+
+export type Widget = {
+  id: string
+  title: string
+  content: ReactNode
+  /** {x, y, w, h} on a 12-col grid + optional minW/minH */
+  defaultLayout: Omit<Layout, "i">
 }
 
-/**
- * Resizable, persistent layout for the analysis page.
- * Users can drag the dividers to resize each widget area, and the
- * sizes are persisted per-group via `autoSaveId` (localStorage).
- */
+type AnalysisLayoutProps = {
+  widgets: Widget[]
+  /** localStorage key — bump version when defaults change to invalidate */
+  storageKey?: string
+}
+
+const ALL_HANDLES: Layout["resizeHandles"] = ["s", "n", "e", "w", "se", "sw", "ne", "nw"]
+
 export function AnalysisLayout({
-  chart,
-  topSidebar,
-  mainContent,
-  rightSidebar,
+  widgets,
+  storageKey = "analysis:grid:v1",
 }: AnalysisLayoutProps) {
+  const defaults = useMemo<Layout[]>(
+    () =>
+      widgets.map((w) => ({
+        i: w.id,
+        ...w.defaultLayout,
+        resizeHandles: ALL_HANDLES,
+      })),
+    [widgets],
+  )
+
+  const [layout, setLayout] = useState<Layout[]>(defaults)
+  const [hydrated, setHydrated] = useState(false)
+
+  // Load saved layout on mount, merging with current widget ids so newly
+  // added widgets fall back to their default position.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(storageKey)
+      if (raw) {
+        const saved = JSON.parse(raw) as Layout[]
+        const merged = widgets.map((w) => {
+          const found = saved.find((s) => s.i === w.id)
+          return {
+            i: w.id,
+            ...w.defaultLayout,
+            ...(found ?? {}),
+            resizeHandles: ALL_HANDLES,
+          }
+        })
+        setLayout(merged)
+      }
+    } catch {
+      /* ignore */
+    }
+    setHydrated(true)
+  }, [widgets, storageKey])
+
+  const handleChange = (next: Layout[]) => {
+    setLayout(next)
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(next))
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const handleReset = () => {
+    setLayout(defaults)
+    try {
+      localStorage.removeItem(storageKey)
+    } catch {
+      /* ignore */
+    }
+  }
+
+  if (!hydrated) {
+    return <div className="min-h-[800px] w-full" aria-hidden />
+  }
+
   return (
-    <ResizablePanelGroup
-      direction="vertical"
-      autoSaveId="analysis:vertical"
-      className="h-[calc(100vh-9rem)] min-h-[640px] w-full rounded-lg border border-border bg-background"
-    >
-      {/* TOP ROW — chart + primary sidebar */}
-      <ResizablePanel defaultSize={62} minSize={30}>
-        <ResizablePanelGroup
-          direction="horizontal"
-          autoSaveId="analysis:top"
-          className="h-full"
+    <div className="w-full">
+      <div className="mb-2 flex items-center justify-between">
+        <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
+          Drag headers to move · Drag edges to resize
+        </p>
+        <button
+          type="button"
+          onClick={handleReset}
+          className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1 font-mono text-[11px] uppercase tracking-wider text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
-          <ResizablePanel defaultSize={72} minSize={35}>
-            <div className="h-full w-full">{chart}</div>
-          </ResizablePanel>
+          <RotateCcw className="h-3 w-3" />
+          Reset Layout
+        </button>
+      </div>
 
-          <ResizableHandle withHandle />
-
-          <ResizablePanel defaultSize={28} minSize={18}>
-            <div className="h-full overflow-y-auto p-3">
-              <div className="flex flex-col gap-4">{topSidebar}</div>
-            </div>
-          </ResizablePanel>
-        </ResizablePanelGroup>
-      </ResizablePanel>
-
-      <ResizableHandle withHandle />
-
-      {/* BOTTOM ROW — supporting content + secondary sidebar */}
-      <ResizablePanel defaultSize={38} minSize={20}>
-        <ResizablePanelGroup
-          direction="horizontal"
-          autoSaveId="analysis:bottom"
-          className="h-full"
-        >
-          <ResizablePanel defaultSize={65} minSize={30}>
-            <div className="h-full overflow-y-auto p-3">
-              <div className="flex flex-col gap-4">{mainContent}</div>
-            </div>
-          </ResizablePanel>
-
-          <ResizableHandle withHandle />
-
-          <ResizablePanel defaultSize={35} minSize={20}>
-            <div className="h-full overflow-y-auto p-3">
-              <div className="flex flex-col gap-4">{rightSidebar}</div>
-            </div>
-          </ResizablePanel>
-        </ResizablePanelGroup>
-      </ResizablePanel>
-    </ResizablePanelGroup>
+      <ReactGridLayout
+        className="analysis-grid"
+        layout={layout}
+        cols={12}
+        rowHeight={40}
+        margin={[10, 10]}
+        containerPadding={[0, 0]}
+        draggableHandle=".widget-drag-handle"
+        onLayoutChange={handleChange}
+        compactType={null}
+        preventCollision={true}
+        isResizable
+        isDraggable
+        resizeHandles={ALL_HANDLES}
+      >
+        {widgets.map((w) => (
+          <div key={w.id} className="overflow-hidden">
+            <WidgetFrame title={w.title}>{w.content}</WidgetFrame>
+          </div>
+        ))}
+      </ReactGridLayout>
+    </div>
   )
 }
