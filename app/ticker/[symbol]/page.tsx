@@ -9,6 +9,7 @@ import { TickerNews } from "@/components/ticker-news"
 import { TickerDarkPool } from "@/components/ticker-dark-pool"
 import { TickerPatterns } from "@/components/ticker-patterns"
 import { TradeIdeaPanel } from "@/components/trade-idea-panel"
+import { KeyMetricsDisplay } from "@/components/key-metrics-display"
 
 export const dynamic = "force-dynamic"
 
@@ -50,8 +51,9 @@ export default async function TickerPage({ params }: { params: Promise<{ symbol:
         <div className="lg:col-span-2">
           <TradeIdeaPanel symbol={sym} />
         </div>
-        <div>
+        <div className="flex flex-col gap-6">
           <TickerAnalystRatings symbol={sym} />
+          <KeyMetricsDisplay symbol={sym} />
         </div>
       </div>
 
