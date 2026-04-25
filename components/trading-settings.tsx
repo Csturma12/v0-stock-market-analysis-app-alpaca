@@ -41,9 +41,8 @@ export function TradingSettings() {
   }
 
   return (
-    <div className="flex flex-col gap-4 rounded-lg border border-border bg-card p-5">
-      <div className="flex items-baseline justify-between">
-        <h3 className="text-base font-semibold">Guardrails</h3>
+    <div className="flex flex-col gap-3">
+      <div className="flex items-baseline justify-end">
         <span className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
           {saving ? "Saving…" : "Saved"}
         </span>
@@ -98,12 +97,6 @@ export function TradingSettings() {
         onChange={(v) => save({ min_conviction: v })}
         max={10}
       />
-
-      <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-        The kill switch blocks all orders, manual or autonomous. Autonomous mode only executes ideas at or above your
-        conviction threshold and within position/loss limits. Paper only until you change the Alpaca base URL in{" "}
-        <span className="font-mono">lib/alpaca.ts</span>.
-      </p>
     </div>
   )
 }

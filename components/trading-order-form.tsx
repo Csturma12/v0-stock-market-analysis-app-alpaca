@@ -34,10 +34,17 @@ type OptionContract = {
   open_interest: string | null
 }
 
-export function TradingOrderForm({ stageParams }: { stageParams?: StageParams | null }) {
+export function TradingOrderForm({ 
+  stageParams,
+  formType 
+}: { 
+  stageParams?: StageParams | null
+  formType?: "stock" | "options"
+}) {
   const params = useSearchParams()
   const router = useRouter()
-  const [tab, setTab] = useState<"stock" | "options">("stock")
+  const [tab, setTab] = useState<"stock" | "options">(formType ?? "stock")
+  const showTabs = !formType // Only show tabs if no specific formType is provided
 
   // ── Stock form state ──────────────────────────────────────────────
   const [symbol, setSymbol] = useState("")
@@ -203,32 +210,36 @@ export function TradingOrderForm({ stageParams }: { stageParams?: StageParams | 
   }
 
   return (
-    <div className="flex flex-col gap-0 rounded-lg border border-border bg-card">
-      {/* Tab bar */}
-      <div className="flex border-b border-border">
-        {(["stock", "options"] as const).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={cn(
-              "flex-1 px-4 py-3 text-sm font-medium transition-colors",
-              tab === t
-                ? "border-b-2 border-primary text-foreground"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {t === "stock" ? "Stock / ETF" : "Options"}
-          </button>
-        ))}
-      </div>
+    <div className="flex flex-col gap-0">
+      {/* Tab bar — only shown if no formType is specified */}
+      {showTabs && (
+        <div className="flex border-b border-border rounded-t-lg overflow-hidden">
+          {(["stock", "options"] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={cn(
+                "flex-1 px-4 py-3 text-sm font-medium transition-colors",
+                tab === t
+                  ? "border-b-2 border-primary text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {t === "stock" ? "Stock / ETF" : "Options"}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Stock tab */}
       {tab === "stock" && (
-        <form onSubmit={submitStock} className="flex flex-col gap-3 p-5">
-          <div className="flex items-baseline justify-between">
-            <h3 className="text-base font-semibold">{prefilled ? "Staged AI Trade" : "Manual Order"}</h3>
-            <span className="font-mono text-xs uppercase tracking-widest text-muted-foreground">Paper</span>
-          </div>
+        <form onSubmit={submitStock} className="flex flex-col gap-3">
+          {prefilled && (
+            <div className="flex items-baseline justify-between mb-1">
+              <span className="font-mono text-xs uppercase tracking-widest text-primary">Staged AI Trade</span>
+              <span className="font-mono text-xs uppercase tracking-widest text-muted-foreground">Paper</span>
+            </div>
+          )}
 
           {prefilled && (
             <div className="flex items-start justify-between gap-3 rounded-md border border-primary/40 bg-primary/5 p-3 text-xs">
@@ -318,11 +329,13 @@ export function TradingOrderForm({ stageParams }: { stageParams?: StageParams | 
 
       {/* Options tab */}
       {tab === "options" && (
-        <form onSubmit={submitOption} className="flex flex-col gap-3 p-5">
-          <div className="flex items-baseline justify-between">
-            <h3 className="text-base font-semibold">{optPrefilled ? "Staged Options Play" : "Options Order"}</h3>
-            <span className="font-mono text-xs uppercase tracking-widest text-muted-foreground">Paper</span>
-          </div>
+        <form onSubmit={submitOption} className="flex flex-col gap-3">
+          {optPrefilled && (
+            <div className="flex items-baseline justify-between mb-1">
+              <span className="font-mono text-xs uppercase tracking-widest text-amber-400">Staged Options Play</span>
+              <span className="font-mono text-xs uppercase tracking-widest text-muted-foreground">Paper</span>
+            </div>
+          )}
 
           {optPrefilled && (
             <div className="flex items-start justify-between gap-3 rounded-md border border-amber-400/40 bg-amber-400/5 p-3 text-xs">
