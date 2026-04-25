@@ -1,38 +1,19 @@
 "use client"
 
-import { useState, Suspense } from "react"
+import { Suspense } from "react"
 import Link from "next/link"
 import { ChevronLeft } from "lucide-react"
 import { TradingAccount } from "@/components/trading-account"
 import { TradingSettings } from "@/components/trading-settings"
 import { TradingPositions } from "@/components/trading-positions"
 import { TradingOrderForm } from "@/components/trading-order-form"
-import { TradingTradeIdea } from "@/components/trading-trade-idea"
 import { TradingDeck } from "@/components/trading-deck"
 import { AutonomousWatchlist } from "@/components/autonomous-watchlist"
 import { OptionsAnalyzer } from "@/components/options-analyzer"
-
-type StageParams = {
-  symbol?: string
-  side?: "buy" | "sell"
-  qty?: number
-  type?: "limit" | "market"
-  limitPrice?: number
-  stop?: number
-  target?: number
-  thesis?: string
-  isOption?: boolean
-  optionType?: "call" | "put"
-  optionStrike?: number
-  optionExpiry?: string
-  optionAction?: "buy" | "sell"
-  optionQty?: number
-  optionLimit?: number
-}
+import { DualTradeIdeaGenerator } from "@/components/dual-trade-idea-generator"
+import { AIOptionsPlayGenerator } from "@/components/ai-options-play-generator"
 
 export default function TradingPage() {
-  const [stageParams, setStageParams] = useState<StageParams | null>(null)
-
   return (
     <main className="mx-auto max-w-7xl px-2 py-6 md:px-4 md:py-8">
       <Link
@@ -75,9 +56,14 @@ export default function TradingPage() {
             <AutonomousWatchlist />
           </section>
 
-          {/* AI Trade Generator */}
+        {/* AI Trade Generator — Dual Claude vs OpenAI */}
           <section>
-            <TradingTradeIdea onStageOrder={(p) => setStageParams(p)} />
+            <DualTradeIdeaGenerator />
+          </section>
+
+          {/* AI Options Play Generator */}
+          <section>
+            <AIOptionsPlayGenerator />
           </section>
 
           {/* Options Analyzer */}
@@ -109,7 +95,7 @@ export default function TradingPage() {
             </div>
             <div className="p-4">
               <Suspense fallback={<div className="h-48 animate-pulse rounded bg-muted/20" />}>
-                <TradingOrderForm stageParams={stageParams} formType="stock" />
+                <TradingOrderForm formType="stock" />
               </Suspense>
             </div>
           </div>
@@ -123,7 +109,7 @@ export default function TradingPage() {
             </div>
             <div className="p-4">
               <Suspense fallback={<div className="h-48 animate-pulse rounded bg-muted/20" />}>
-                <TradingOrderForm stageParams={stageParams} formType="options" />
+                <TradingOrderForm formType="options" />
               </Suspense>
             </div>
           </div>
