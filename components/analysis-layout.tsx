@@ -115,7 +115,7 @@ export function AnalysisLayout({
         draggableHandle=".widget-drag-handle"
         onLayoutChange={handleChange}
         compactType={null}
-        preventCollision={true}
+        preventCollision={false}
         isResizable
         isDraggable
         resizeHandles={ALL_HANDLES}
