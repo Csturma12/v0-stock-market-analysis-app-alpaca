@@ -118,7 +118,7 @@ export function TickerDarkPool({ symbol }: { symbol: string }) {
         <div className="mt-4">
           <div className="mb-2 text-xs font-medium text-muted-foreground">Recent Prints</div>
           {darkPool.prints.length === 0 ? (
-            <p className="text-xs text-muted-foreground">No dark pool prints in the last session.</p>
+            <p className="text-xs text-muted-foreground">No dark pool prints found for this period.</p>
           ) : (
             <div className="max-h-48 overflow-y-auto">
               <table className="w-full text-xs">
@@ -131,10 +131,16 @@ export function TickerDarkPool({ symbol }: { symbol: string }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {darkPool.prints.slice(0, 10).map((p, i) => (
+                  {darkPool.prints.slice(0, 15).map((p, i) => {
+                    const date = new Date(p.executedAt)
+                    const isToday = date.toDateString() === new Date().toDateString()
+                    const timeStr = isToday 
+                      ? date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                      : date.toLocaleDateString([], { month: "short", day: "numeric" }) + " " + date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                    return (
                     <tr key={i} className="border-t border-border/40">
-                      <td className="py-1.5 text-muted-foreground">
-                        {new Date(p.executedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      <td className="py-1.5 text-muted-foreground whitespace-nowrap">
+                        {timeStr}
                       </td>
                       <td className="py-1.5 font-mono text-foreground">${p.price.toFixed(2)}</td>
                       <td className="py-1.5 font-mono text-foreground">{fmtCompact(p.size)}</td>
@@ -142,7 +148,8 @@ export function TickerDarkPool({ symbol }: { symbol: string }) {
                         {fmtUsd(p.premium)}
                       </td>
                     </tr>
-                  ))}
+                  )}
+                  )}
                 </tbody>
               </table>
             </div>
@@ -195,7 +202,7 @@ export function TickerDarkPool({ symbol }: { symbol: string }) {
         <div className="mt-4">
           <div className="mb-2 text-xs font-medium text-muted-foreground">Recent Alerts</div>
           {flow.alerts.length === 0 ? (
-            <p className="text-xs text-muted-foreground">No flow alerts in the last session.</p>
+            <p className="text-xs text-muted-foreground">No recent flow alerts found.</p>
           ) : (
             <div className="max-h-48 overflow-y-auto">
               <table className="w-full text-xs">

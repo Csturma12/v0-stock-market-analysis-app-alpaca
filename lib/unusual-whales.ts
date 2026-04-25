@@ -143,21 +143,30 @@ export async function getUnusualWhalesSummary(
 ): Promise<UWSummary | null> {
   const sym = symbol.toUpperCase()
 
-  // Map period to Unusual Whales API parameters
-  const periodMap: Record<string, string> = {
-    previous_session: "today",
-    weekly: "week",
-    monthly: "month",
-    "3_month": "3month",
-    "6_month": "6month",
+  // Build ISO date range strings (YYYY-MM-DD) for the selected period
+  const toDate = new Date()
+  const daysBack: Record<typeof period, number> = {
+    previous_session: 2,  // 2 days to cover weekends/holidays
+    weekly: 7,
+    monthly: 30,
+    "3_month": 90,
+    "6_month": 180,
   }
+  const days = daysBack[period] ?? 7
+  const fromDate = new Date(toDate.getTime() - days * 24 * 60 * 60 * 1000)
+  const fmt = (d: Date) => d.toISOString().slice(0, 10)
 
-  const interval = periodMap[period] || "week"
+  // Larger limits for longer windows
+  const darkPoolLimit = period === "previous_session" ? 100 : period === "weekly" ? 200 : 500
+  const flowLimit = period === "previous_session" ? 50 : period === "weekly" ? 150 : 300
 
+  // UW dark pool endpoint accepts date_from / date_to (YYYY-MM-DD)
+  // UW flow-alerts accepts start_date / end_date (YYYY-MM-DD)
+  // Both also accept a "limit" param; paginate with "page" if needed
   const [darkPoolRes, flowRes, gexRes] = await Promise.all([
-    uwFetch<any>(`/darkpool/${sym}?limit=100&interval=${interval}`),
-    uwFetch<any>(`/option-trades/flow-alerts?ticker_symbol=${sym}&limit=50&interval=${interval}`),
-    uwFetch<any>(`/stock/${sym}/greek-exposure/strike?interval=${interval}`),
+    uwFetch<any>(`/darkpool/${sym}?limit=${darkPoolLimit}&date_from=${fmt(fromDate)}&date_to=${fmt(toDate)}`),
+    uwFetch<any>(`/option-trades/flow-alerts?ticker_symbol=${sym}&limit=${flowLimit}&start_date=${fmt(fromDate)}&end_date=${fmt(toDate)}`),
+    uwFetch<any>(`/stock/${sym}/greek-exposure/strike`),
   ])
 
   const prints: DarkPoolPrint[] = (darkPoolRes?.data ?? []).map((d: any) => ({

@@ -35,67 +35,67 @@ export default async function TickerPage({ params }: { params: Promise<{ symbol:
       id: "chart",
       title: "Chart",
       content: <TickerChart symbol={sym} className="h-full" />,
-      defaultLayout: { x: 0, y: 0, w: 6, h: 11, minW: 4, minH: 8 },
+      defaultLayout: { x: 0, y: 0, w: 6, h: 12, minW: 4, minH: 8 },
     },
     {
       id: "support-resistance",
       title: "Key Support & Resistance",
       content: <TickerSupportResistance symbol={sym} />,
-      defaultLayout: { x: 6, y: 0, w: 3, h: 6, minW: 2, minH: 4 },
+      defaultLayout: { x: 6, y: 0, w: 3, h: 5, minW: 2, minH: 4 },
     },
     {
       id: "analyst-ratings",
       title: "Analyst Ratings",
       content: <TickerAnalystRatings symbol={sym} />,
-      defaultLayout: { x: 9, y: 0, w: 3, h: 6, minW: 2, minH: 4 },
+      defaultLayout: { x: 9, y: 0, w: 3, h: 5, minW: 2, minH: 4 },
     },
     {
       id: "technicals",
       title: "Technicals",
       content: <TickerTechnicals symbol={sym} />,
-      defaultLayout: { x: 6, y: 6, w: 3, h: 5, minW: 2, minH: 4 },
+      defaultLayout: { x: 6, y: 5, w: 3, h: 5, minW: 2, minH: 4 },
     },
     {
       id: "fundamentals",
       title: "Fundamentals",
       content: <TickerFundamentals symbol={sym} />,
-      defaultLayout: { x: 9, y: 6, w: 3, h: 5, minW: 2, minH: 4 },
+      defaultLayout: { x: 9, y: 5, w: 3, h: 5, minW: 2, minH: 4 },
     },
     {
       id: "dark-pool",
       title: "Dark Pool Activity",
       content: <TickerDarkPool symbol={sym} />,
-      defaultLayout: { x: 0, y: 11, w: 5, h: 6, minW: 3, minH: 4 },
+      defaultLayout: { x: 0, y: 12, w: 3, h: 6, minW: 2, minH: 4 },
     },
     {
       id: "key-metrics",
       title: "Key Metrics",
       content: <KeyMetricsDisplay symbol={sym} />,
-      defaultLayout: { x: 5, y: 11, w: 4, h: 6, minW: 3, minH: 4 },
-    },
-    {
-      id: "news",
-      title: "Top 10 Stories",
-      content: <TickerNews symbol={sym} />,
-      defaultLayout: { x: 9, y: 11, w: 3, h: 13, minW: 2, minH: 5 },
-    },
-    {
-      id: "trade-idea",
-      title: "AI Trade Idea",
-      content: <TradeIdeaPanel symbol={sym} />,
-      defaultLayout: { x: 0, y: 17, w: 5, h: 7, minW: 3, minH: 5 },
+      defaultLayout: { x: 3, y: 12, w: 3, h: 6, minW: 2, minH: 4 },
     },
     {
       id: "patterns",
       title: "Pattern Analysis",
       content: <TickerPatterns symbol={sym} />,
-      defaultLayout: { x: 5, y: 17, w: 4, h: 7, minW: 3, minH: 4 },
+      defaultLayout: { x: 6, y: 12, w: 3, h: 6, minW: 2, minH: 4 },
+    },
+    {
+      id: "news",
+      title: "Top 10 Stories",
+      content: <TickerNews symbol={sym} />,
+      defaultLayout: { x: 9, y: 0, w: 3, h: 18, minW: 2, minH: 5 },
+    },
+    {
+      id: "trade-idea",
+      title: "AI Trade Idea",
+      content: <TradeIdeaPanel symbol={sym} />,
+      defaultLayout: { x: 0, y: 18, w: 3, h: 6, minW: 2, minH: 5 },
     },
     {
       id: "catalysts",
       title: "Catalysts & Risks",
       content: <TickerCatalystsRisks symbol={sym} />,
-      defaultLayout: { x: 0, y: 24, w: 9, h: 6, minW: 3, minH: 4 },
+      defaultLayout: { x: 3, y: 18, w: 6, h: 8, minW: 3, minH: 4 },
     },
   ]
 
@@ -114,7 +114,7 @@ export default async function TickerPage({ params }: { params: Promise<{ symbol:
 
       {/* Free-form draggable + resizable widget grid */}
       <div className="mt-2">
-        <AnalysisLayout widgets={widgets} storageKey={`analysis:grid:v8:${sym}`} />
+        <AnalysisLayout widgets={widgets} storageKey={`analysis:grid:v9:${sym}`} />
       </div>
     </main>
   )

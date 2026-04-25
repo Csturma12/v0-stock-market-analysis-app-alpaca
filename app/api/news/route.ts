@@ -5,7 +5,8 @@ import { getTickerNews } from "@/lib/polygon"
 import { getCompanyNews, getMarketNews } from "@/lib/finnhub"
 import { tavilySearch } from "@/lib/tavily"
 
-export const revalidate = 120
+// No static cache — each ticker request must be fresh
+export const dynamic = "force-dynamic"
 
 type NewsOut = {
   id: string
@@ -84,13 +85,18 @@ export async function GET(req: Request) {
   const tavilyMaxResults = themeId ? 14 : 8
   const tavilyDays = themeId ? 14 : 7
 
+  // For single-ticker requests fetch more from each source for better coverage
+  const isSingleTicker = tickers.length === 1
+  const polyLimit = isSingleTicker ? 15 : 5
+  const finnhubLimit = isSingleTicker ? 10 : 5
+
   const [polyNews, finnhubNews, merger, tav] = await Promise.all([
-    Promise.all(topTickers.map((t) => getTickerNews(t, 5))).then((arr) => arr.flat()),
-    Promise.all(topTickers.slice(0, 3).map((t) => getCompanyNews(t, 5))).then((arr) => arr.flat()),
+    Promise.all(topTickers.map((t) => getTickerNews(t, polyLimit))).then((arr) => arr.flat()),
+    Promise.all(topTickers.slice(0, isSingleTicker ? 1 : 3).map((t) => getCompanyNews(t, finnhubLimit))).then((arr) => arr.flat()),
     category === "ma" || category === "all" ? getMarketNews("merger") : Promise.resolve([]),
     tavilySearch(tavilyQuery, {
       topic: "news",
-      maxResults: tavilyMaxResults,
+      maxResults: isSingleTicker ? 10 : tavilyMaxResults,
       days: tavilyDays,
     }),
   ])
@@ -177,14 +183,30 @@ export async function GET(req: Request) {
     if (re) filtered = items.filter((i) => re.test(`${i.title} ${i.source} ${i.description ?? ""}`))
   }
 
-  // Dedupe by URL, sort desc
+  // Dedupe by URL
   const seen = new Set<string>()
   const deduped = filtered.filter((i) => {
     if (seen.has(i.url)) return false
     seen.add(i.url)
     return true
   })
-  deduped.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
+
+  // Score by relevance: exact ticker mention in title scores highest, then recency
+  const primaryTicker = tickers[0]?.toUpperCase() ?? ""
+  const score = (item: NewsOut): number => {
+    let s = 0
+    // Recency: newer = higher score (ms since epoch, normalized)
+    s += new Date(item.publishedAt).getTime() / 1e12
+    if (primaryTicker) {
+      const text = `${item.title} ${item.description ?? ""}`
+      // Ticker appears in title/description
+      if (text.toUpperCase().includes(primaryTicker)) s += 50
+      // Ticker is in tickers array
+      if (item.tickers?.map((t) => t.toUpperCase()).includes(primaryTicker)) s += 30
+    }
+    return s
+  }
+  deduped.sort((a, b) => score(b) - score(a))
 
   const out = deduped.slice(0, 40)
   return NextResponse.json({
