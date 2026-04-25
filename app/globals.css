@@ -267,6 +267,13 @@
 .news-marquee:hover {
   animation-play-state: paused;
 }
+.news-marquee {
+  animation: marquee-scroll 25s linear infinite;
+  will-change: transform;
+}
+.news-marquee:hover {
+  animation-play-state: paused;
+}
 
 /* Key Metrics container overrides per design refinement */
 .key-metrics-container {
