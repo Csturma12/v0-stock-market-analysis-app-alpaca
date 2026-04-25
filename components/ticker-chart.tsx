@@ -2,22 +2,15 @@
 
 import { useEffect, useRef } from "react"
 
-declare global {
-  interface Window {
-    TradingView?: any
-  }
-}
-
-export function TickerChart({ symbol }: { symbol: string }) {
+export function TickerChart({ symbol, className = "" }: { symbol: string; className?: string }) {
   const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!containerRef.current) return
 
-    // Clear any existing content
+    // Reset container before (re)mounting widget
     containerRef.current.innerHTML = ""
 
-    // Create wrapper div for TradingView widget
     const widgetContainer = document.createElement("div")
     widgetContainer.className = "tradingview-widget-container"
     widgetContainer.style.height = "100%"
@@ -25,63 +18,39 @@ export function TickerChart({ symbol }: { symbol: string }) {
 
     const widget = document.createElement("div")
     widget.className = "tradingview-widget-container__widget"
-    widget.id = `tradingview-chart-${symbol}`
-    widget.style.height = "100%"
+    widget.style.height = "calc(100% - 32px)"
     widget.style.width = "100%"
 
     widgetContainer.appendChild(widget)
+
+    // TradingView's embed script reads its JSON config from its own innerText
+    // and renders into the nearest .tradingview-widget-container__widget sibling.
+    const script = document.createElement("script")
+    script.type = "text/javascript"
+    script.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js"
+    script.async = true
+    script.innerHTML = JSON.stringify({
+      autosize: true,
+      symbol,
+      interval: "D",
+      timezone: "Etc/UTC",
+      theme: "dark",
+      style: "1",
+      locale: "en",
+      enable_publishing: false,
+      allow_symbol_change: true,
+      calendar: false,
+      support_host: "https://www.tradingview.com",
+    })
+
+    widgetContainer.appendChild(script)
     containerRef.current.appendChild(widgetContainer)
-
-    // Load TradingView script
-    if (!window.TradingView) {
-      const script = document.createElement("script")
-      script.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js"
-      script.async = true
-      script.onload = () => {
-        // Initialize chart after script loads
-        if (window.TradingView?.MediumWidget || window.TradingView?.advanced_chart) {
-          createChart()
-        }
-      }
-      document.body.appendChild(script)
-    } else {
-      createChart()
-    }
-
-    function createChart() {
-      const config = {
-        autosize: true,
-        symbol: symbol,
-        interval: "D",
-        timezone: "Etc/UTC",
-        theme: "dark",
-        style: "1",
-        locale: "en",
-        enable_publishing: false,
-        allow_symbol_change: true,
-        calendar: false,
-        support_host: "https://www.tradingview.com",
-      }
-
-      // Use TradingView's new embed method
-      const script = document.createElement("script")
-      script.type = "text/javascript"
-      script.innerHTML = `
-        (function() {
-          new window.TradingView.advanced_chart.AdvancedChart({
-            ...${JSON.stringify(config)},
-            container_id: "tradingview-chart-${symbol}"
-          });
-        })();
-      `
-      containerRef.current?.appendChild(script)
-    }
   }, [symbol])
 
   return (
     <div
       ref={containerRef}
-      className="h-[600px] w-full rounded-lg border border-border bg-card p-0 overflow-hidden"
+      className={`w-full rounded-lg border border-border bg-card overflow-hidden ${className}`}
     />
   )
 }

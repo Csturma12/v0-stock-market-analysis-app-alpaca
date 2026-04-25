@@ -20,23 +20,27 @@ export default async function TickerPage({ params }: { params: Promise<{ symbol:
   const sym = symbol.toUpperCase()
 
   return (
-    <main className="mx-auto max-w-7xl px-0.5 py-8 md:py-10">
+    <main className="mx-auto max-w-7xl px-4 py-6 md:px-6">
       <Link
         href="/"
-        className="mb-6 inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         <ChevronLeft className="h-4 w-4" />
         Back
       </Link>
 
+      {/* Ticker header */}
       <TickerHeader symbol={sym} />
 
-      {/* Main two-column layout: left = content, right = sidebar */}
-      <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
+      {/* Chart sits directly below the ticker, fit-to-screen height */}
+      <div className="mt-4 h-[calc(100vh-12rem)] min-h-[480px] w-full">
+        <TickerChart symbol={sym} className="h-full" />
+      </div>
 
+      {/* Supporting analysis content below the chart */}
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* LEFT — main content column */}
         <div className="flex flex-col gap-6 lg:col-span-2">
-          <TickerChart symbol={sym} />
           <TickerDarkPool symbol={sym} />
           <TickerPatterns symbol={sym} />
           <TradeIdeaPanel symbol={sym} />
@@ -52,7 +56,6 @@ export default async function TickerPage({ params }: { params: Promise<{ symbol:
           <TickerSupportResistance symbol={sym} />
           <TickerCatalystsRisks symbol={sym} />
         </div>
-
       </div>
     </main>
   )
