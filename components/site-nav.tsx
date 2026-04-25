@@ -3,6 +3,7 @@ import { Activity, LineChart, TrendingUp } from "lucide-react"
 import { MarketStatusBadge } from "./market-status-badge"
 import { TickerSearch } from "./ticker-search"
 import { FullscreenToggle } from "./fullscreen-toggle"
+import { BrokerConnectMenu } from "./broker-connect-menu"
 
 export function SiteNav() {
   return (
@@ -36,6 +37,7 @@ export function SiteNav() {
           <TickerSearch />
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          <BrokerConnectMenu />
           <MarketStatusBadge />
           <FullscreenToggle />
         </div>
