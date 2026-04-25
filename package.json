@@ -42,6 +42,7 @@
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.104.0",
     "@vercel/analytics": "1.6.1",
+    "@vercel/speed-insights": "^2.0.0",
     "ai": "^6.0.168",
     "autoprefixer": "^10.4.20",
     "class-variance-authority": "^0.7.1",
