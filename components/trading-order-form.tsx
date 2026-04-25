@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
+import { useStagedTrades } from "@/lib/staged-trade-context"
 
 type StageParams = {
   symbol?: string
@@ -75,6 +76,41 @@ export function TradingOrderForm({
   const [optBusy, setOptBusy] = useState(false)
   const [optMsg, setOptMsg] = useState<{ ok: boolean; text: string } | null>(null)
 
+  // Get staged trades from context
+  const { stagedStock, stagedOptions, clearStock: clearStagedStock, clearOptions: clearStagedOptions } = useStagedTrades()
+
+  // Hydrate from staged trade context (highest priority)
+  useEffect(() => {
+    if (formType === "stock" && stagedStock) {
+      setSymbol(stagedStock.ticker)
+      setSide(stagedStock.action === "BUY" ? "buy" : "sell")
+      setQty(stagedStock.qty)
+      setType("limit")
+      if (stagedStock.entry) setLimit(stagedStock.entry)
+      if (stagedStock.stop_loss) setStop(stagedStock.stop_loss)
+      if (stagedStock.take_profit) setTarget(stagedStock.take_profit)
+      if (stagedStock.thesis) setThesis(stagedStock.thesis)
+      setPrefilled(true)
+    }
+  }, [stagedStock, formType])
+
+  useEffect(() => {
+    if (formType === "options" && stagedOptions) {
+      setOptSym(stagedOptions.ticker)
+      if (stagedOptions.legs.length > 0) {
+        const leg = stagedOptions.legs[0]
+        setOptType(leg.instrument)
+        setOptAction(leg.action)
+        if (leg.strike) setOptStrike(leg.strike)
+        if (leg.qty) setOptQty(leg.qty)
+        if (leg.limitPrice) setOptLimit(leg.limitPrice)
+      }
+      if (stagedOptions.expiry) setOptExpiry(stagedOptions.expiry)
+      if (stagedOptions.thesis) setOptThesis(stagedOptions.thesis)
+      setOptPrefilled(true)
+    }
+  }, [stagedOptions, formType])
+
   // Hydrate from URL params (old handoff path)
   useEffect(() => {
     const sym = params.get("symbol")
@@ -128,13 +164,14 @@ export function TradingOrderForm({
   function clearStock() {
     setSymbol(""); setQty(1); setSide("buy"); setType("limit")
     setLimit(""); setStop(""); setTarget(""); setThesis("")
-    setPrefilled(false); router.replace("/trading")
+    setPrefilled(false); clearStagedStock(); router.replace("/trading")
   }
 
   function clearOptions() {
     setOptSym(""); setOptType("call"); setOptAction("buy"); setOptExpiry("")
     setOptStrike(""); setOptQty(1); setOptLimit(""); setOptThesis("")
     setOptPrefilled(false); setSelectedContract(null); setContracts([])
+    clearStagedOptions()
   }
 
   async function searchContracts() {
@@ -242,9 +279,23 @@ export function TradingOrderForm({
           )}
 
           {prefilled && (
-            <div className="flex items-start justify-between gap-3 rounded-md border border-primary/40 bg-primary/5 p-3 text-xs">
+            <div className={cn(
+              "flex items-start justify-between gap-3 rounded-md border p-3 text-xs",
+              stagedStock?.source === "claude" 
+                ? "border-purple-400/40 bg-purple-400/5" 
+                : stagedStock?.source === "openai"
+                ? "border-green-400/40 bg-green-400/5"
+                : "border-primary/40 bg-primary/5"
+            )}>
               <div className="flex flex-col gap-1">
-                <span className="font-mono uppercase tracking-widest text-primary">Pre-filled from AI idea</span>
+                <div className="flex items-center gap-2">
+                  <span className={cn(
+                    "font-mono uppercase tracking-widest",
+                    stagedStock?.source === "claude" ? "text-purple-400" : stagedStock?.source === "openai" ? "text-green-400" : "text-primary"
+                  )}>
+                    {stagedStock?.source === "claude" ? "Claude" : stagedStock?.source === "openai" ? "OpenAI" : "AI"} Trade
+                  </span>
+                </div>
                 {thesis && <p className="leading-relaxed text-muted-foreground">{thesis}</p>}
                 <div className="mt-1 flex gap-3 font-mono text-muted-foreground">
                   {stop !== "" && <span>Stop ${Number(stop).toFixed(2)}</span>}
