@@ -15,15 +15,19 @@ export async function GET(req: NextRequest, context: { params: Promise<{ symbol:
     // Fetch last 40 bars (2+ months of data)
     const bars = await getBars(symbol.toUpperCase(), (timeframe as "day" | "week" | "month") || "day", 40)
     if (!bars || bars.length < 20) {
-      return NextResponse.json({ patterns: [], error: "Insufficient data" }, { status: 400 })
+      return NextResponse.json({ 
+        patterns: [], 
+        diagnostics: [{ pattern: "All", checked: false, reason: `Only ${bars?.length ?? 0} bars available` }],
+        summary: `Insufficient price history (${bars?.length ?? 0} bars). Need 20+ trading days for pattern analysis.`
+      }, { status: 200 })
     }
 
     // Detect patterns
-    const patterns = detectPatterns(bars)
-    console.log(`[v0] Found ${patterns.length} tradeable patterns`)
+    const result = detectPatterns(bars)
+    console.log(`[v0] Found ${result.patterns.length} tradeable patterns`)
 
     // Score each for autonomous trading
-    const scored = patterns.map((p) => ({
+    const scored = result.patterns.map((p) => ({
       ...p,
       autonomyScore: scorePatternForAutonomy(p),
     }))
@@ -49,7 +53,13 @@ export async function GET(req: NextRequest, context: { params: Promise<{ symbol:
       if (error) console.log("[v0] DB error:", error.message)
     }
 
-    return NextResponse.json({ symbol, timeframe, patterns: scored })
+    return NextResponse.json({ 
+      symbol, 
+      timeframe, 
+      patterns: scored,
+      diagnostics: result.diagnostics,
+      summary: result.summary
+    })
   } catch (error) {
     console.error("[v0] Pattern detection error:", error)
     return NextResponse.json({ error: (error as Error).message }, { status: 500 })
