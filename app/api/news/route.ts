@@ -5,7 +5,8 @@ import { getTickerNews } from "@/lib/polygon"
 import { getCompanyNews, getMarketNews } from "@/lib/finnhub"
 import { tavilySearch } from "@/lib/tavily"
 
-export const revalidate = 120
+// No static cache — each ticker request must be fresh
+export const dynamic = "force-dynamic"
 
 type NewsOut = {
   id: string
@@ -84,13 +85,18 @@ export async function GET(req: Request) {
   const tavilyMaxResults = themeId ? 14 : 8
   const tavilyDays = themeId ? 14 : 7
 
+  // For single-ticker requests fetch more from each source for better coverage
+  const isSingleTicker = tickers.length === 1
+  const polyLimit = isSingleTicker ? 15 : 5
+  const finnhubLimit = isSingleTicker ? 10 : 5
+
   const [polyNews, finnhubNews, merger, tav] = await Promise.all([
-    Promise.all(topTickers.map((t) => getTickerNews(t, 5))).then((arr) => arr.flat()),
-    Promise.all(topTickers.slice(0, 3).map((t) => getCompanyNews(t, 5))).then((arr) => arr.flat()),
+    Promise.all(topTickers.map((t) => getTickerNews(t, polyLimit))).then((arr) => arr.flat()),
+    Promise.all(topTickers.slice(0, isSingleTicker ? 1 : 3).map((t) => getCompanyNews(t, finnhubLimit))).then((arr) => arr.flat()),
     category === "ma" || category === "all" ? getMarketNews("merger") : Promise.resolve([]),
     tavilySearch(tavilyQuery, {
       topic: "news",
-      maxResults: tavilyMaxResults,
+      maxResults: isSingleTicker ? 10 : tavilyMaxResults,
       days: tavilyDays,
     }),
   ])
