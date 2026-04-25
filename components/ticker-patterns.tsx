@@ -1,12 +1,14 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import type { DetectedPattern } from "@/lib/pattern-detector"
-import { AlertCircle, TrendingUp, BarChart3, Zap } from "lucide-react"
+import type { DetectedPattern, PatternDiagnostic } from "@/lib/pattern-detector"
+import { AlertCircle, TrendingUp, BarChart3, Zap, Info } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export function TickerPatterns({ symbol }: { symbol: string }) {
   const [patterns, setPatterns] = useState<(DetectedPattern & { autonomyScore: number })[]>([])
+  const [diagnostics, setDiagnostics] = useState<PatternDiagnostic[]>([])
+  const [summary, setSummary] = useState<string>("")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -16,10 +18,12 @@ export function TickerPatterns({ symbol }: { symbol: string }) {
         const res = await fetch(`/api/ticker/${symbol}/patterns`)
         const data = await res.json()
 
-        if (res.ok && data.patterns) {
-          setPatterns(data.patterns)
+        if (res.ok) {
+          setPatterns(data.patterns || [])
+          setDiagnostics(data.diagnostics || [])
+          setSummary(data.summary || "")
         } else {
-          setError(data.error || "No patterns detected")
+          setError(data.error || "Failed to analyze patterns")
         }
       } catch (err) {
         setError((err as Error).message)
@@ -33,7 +37,32 @@ export function TickerPatterns({ symbol }: { symbol: string }) {
 
   if (loading) return <div className="text-sm text-muted-foreground">Analyzing patterns...</div>
   if (error) return <div className="text-xs text-muted-foreground">{error}</div>
-  if (!patterns.length) return null
+
+  // No patterns found - show diagnostic reasons
+  if (!patterns.length) {
+    return (
+      <section className="space-y-3">
+        <div className="flex items-center gap-2">
+          <Info className="h-5 w-5 text-muted-foreground" />
+          <h3 className="font-mono text-sm font-semibold uppercase tracking-wider">Pattern Analysis</h3>
+        </div>
+
+        <div className="rounded-lg border border-border bg-card/50 p-3">
+          <p className="text-sm text-muted-foreground mb-3">{summary}</p>
+          
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Why no patterns?</p>
+            {diagnostics.filter(d => !d.reason.startsWith("Pattern detected")).map((diag, idx) => (
+              <div key={idx} className="flex items-start gap-2 text-xs">
+                <span className="font-medium text-foreground whitespace-nowrap">{diag.pattern}:</span>
+                <span className="text-muted-foreground">{diag.reason}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    )
+  }
 
   return (
     <section className="space-y-3">

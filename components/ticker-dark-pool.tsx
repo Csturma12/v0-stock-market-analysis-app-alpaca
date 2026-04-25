@@ -1,10 +1,21 @@
 "use client"
 
+import { useState } from "react"
 import useSWR from "swr"
 import { fmtUsd, fmtCompact } from "@/lib/format"
-import { Activity, TrendingDown, TrendingUp } from "lucide-react"
+import { Activity, TrendingDown, TrendingUp, ChevronDown } from "lucide-react"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
+
+const PERIODS = [
+  { id: "previous_session", label: "Previous Session" },
+  { id: "weekly", label: "Weekly Activity" },
+  { id: "monthly", label: "Monthly Activity" },
+  { id: "3_month", label: "3 Month" },
+  { id: "6_month", label: "6 Month" },
+] as const
+
+type Period = (typeof PERIODS)[number]["id"]
 
 type UWSummary = {
   darkPool: {
@@ -37,9 +48,12 @@ type UWSummary = {
 }
 
 export function TickerDarkPool({ symbol }: { symbol: string }) {
-  const { data, isLoading } = useSWR<{ uw: UWSummary | null }>(`/api/ticker/${symbol}/flow`, fetcher, {
-    refreshInterval: 60_000,
-  })
+  const [period, setPeriod] = useState<Period>("weekly")
+  const { data, isLoading } = useSWR<{ uw: UWSummary | null }>(
+    `/api/ticker/${symbol}/flow?period=${period}`,
+    fetcher,
+    { refreshInterval: 60_000 }
+  )
 
   if (isLoading) {
     return <div className="h-64 animate-pulse rounded-lg border border-border bg-card" />
@@ -68,7 +82,20 @@ export function TickerDarkPool({ symbol }: { symbol: string }) {
             <Activity className="h-4 w-4 text-primary" />
             Dark Pool Activity
           </h3>
-          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Unusual Whales</span>
+          <div className="relative inline-block">
+            <select
+              value={period}
+              onChange={(e) => setPeriod(e.target.value as Period)}
+              className="appearance-none rounded-md border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer pr-7"
+            >
+              {PERIODS.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+          </div>
         </div>
 
         <div className="grid grid-cols-3 gap-4 border-b border-border pb-4">

@@ -14,7 +14,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ symbol:
   const { symbol } = await params
   const sym = symbol.toUpperCase()
 
-  const [snapshot, profile, metrics, candles, recommendations, priceTarget, insider, details] = await Promise.all([
+  const [snapshot, profile, metrics, candles, recommendations, priceTarget, insider, details, candles200] = await Promise.all([
     getSnapshot(sym),
     getCompanyProfile(sym),
     getBasicFinancials(sym),
@@ -23,13 +23,17 @@ export async function GET(_req: Request, { params }: { params: Promise<{ symbol:
     getPriceTarget(sym),
     getInsiderSentiment(sym),
     getTickerDetails(sym),
+    getAggregates(sym, 365), // ~1 year for 200-day SMA (need 280+ calendar days for 200 trading days)
   ])
 
   const closes = candles.map((c) => c.close)
   const volumes = candles.map((c) => c.volume)
+  const closes200 = candles200.map((c) => c.close)
 
+  const sma14 = sma(closes, 14)
   const sma20 = sma(closes, 20)
-  const sma50 = sma(closes, 50)
+  const sma50 = sma(closes200, 50)
+  const sma200 = sma(closes200, 200)
   const rsi14 = rsi(closes, 14)
   const avgVol = volumes.length ? volumes.reduce((a, b) => a + b, 0) / volumes.length : null
   const latestVol = volumes[volumes.length - 1] ?? null
@@ -39,6 +43,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ symbol:
     closes.length > 5 ? (closes[closes.length - 1] / closes[closes.length - 6] - 1) * 100 : null
   const momentum20 =
     closes.length > 20 ? (closes[closes.length - 1] / closes[closes.length - 21] - 1) * 100 : null
+
+  // Compute weekly (5 days) and monthly (21 days) high/low from recent candles
+  const last5 = candles.slice(-5)
+  const last21 = candles.slice(-21)
+  const weeklyHigh = last5.length ? Math.max(...last5.map((c) => c.high)) : null
+  const weeklyLow = last5.length ? Math.min(...last5.map((c) => c.low)) : null
+  const monthlyHigh = last21.length ? Math.max(...last21.map((c) => c.high)) : null
+  const monthlyLow = last21.length ? Math.min(...last21.map((c) => c.low)) : null
 
   // Chart data in both shapes for back-compat
   const chartCandles = candles.map((c) => ({
@@ -67,14 +79,20 @@ export async function GET(_req: Request, { params }: { params: Promise<{ symbol:
     metrics,
     candles: chartCandles,
     technicals: {
+      sma14: sma14[sma14.length - 1] ?? null,
       sma20: sma20[sma20.length - 1] ?? null,
       sma50: sma50[sma50.length - 1] ?? null,
+      sma200: sma200[sma200.length - 1] ?? null,
       rsi14: rsi14[rsi14.length - 1] ?? null,
       avgVolume: avgVol,
       latestVolume: latestVol,
       volumeRatio,
       momentum5,
       momentum20,
+      weeklyHigh,
+      weeklyLow,
+      monthlyHigh,
+      monthlyLow,
     },
     recommendations,
     priceTarget,

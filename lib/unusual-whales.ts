@@ -137,13 +137,27 @@ export async function getCongressionalTrades(symbol: string): Promise<Congressio
   }))
 }
 
-export async function getUnusualWhalesSummary(symbol: string): Promise<UWSummary | null> {
+export async function getUnusualWhalesSummary(
+  symbol: string,
+  period: "previous_session" | "weekly" | "monthly" | "3_month" | "6_month" = "weekly"
+): Promise<UWSummary | null> {
   const sym = symbol.toUpperCase()
 
+  // Map period to Unusual Whales API parameters
+  const periodMap: Record<string, string> = {
+    previous_session: "today",
+    weekly: "week",
+    monthly: "month",
+    "3_month": "3month",
+    "6_month": "6month",
+  }
+
+  const interval = periodMap[period] || "week"
+
   const [darkPoolRes, flowRes, gexRes] = await Promise.all([
-    uwFetch<any>(`/darkpool/${sym}?limit=50`),
-    uwFetch<any>(`/option-trades/flow-alerts?ticker_symbol=${sym}&limit=50`),
-    uwFetch<any>(`/stock/${sym}/greek-exposure/strike`),
+    uwFetch<any>(`/darkpool/${sym}?limit=100&interval=${interval}`),
+    uwFetch<any>(`/option-trades/flow-alerts?ticker_symbol=${sym}&limit=50&interval=${interval}`),
+    uwFetch<any>(`/stock/${sym}/greek-exposure/strike?interval=${interval}`),
   ])
 
   const prints: DarkPoolPrint[] = (darkPoolRes?.data ?? []).map((d: any) => ({

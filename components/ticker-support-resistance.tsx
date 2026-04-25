@@ -20,9 +20,14 @@ export function TickerSupportResistance({ symbol }: { symbol: string }) {
 
   const levels: { label: string; value: number | null; type: LevelType }[] = [
     { label: "52w High", value: quote.week52High ?? null, type: "resistance" as LevelType },
+    { label: "Monthly High", value: t.monthlyHigh ?? null, type: "resistance" as LevelType },
+    { label: "Weekly High", value: t.weeklyHigh ?? null, type: "resistance" as LevelType },
     { label: "SMA 200", value: t.sma200 ?? null, type: resolve(price, t.sma200 ?? null) },
     { label: "SMA 50", value: t.sma50 ?? null, type: resolve(price, t.sma50 ?? null) },
     { label: "SMA 20", value: t.sma20 ?? null, type: resolve(price, t.sma20 ?? null) },
+    { label: "SMA 14", value: t.sma14 ?? null, type: resolve(price, t.sma14 ?? null) },
+    { label: "Weekly Low", value: t.weeklyLow ?? null, type: "support" as LevelType },
+    { label: "Monthly Low", value: t.monthlyLow ?? null, type: "support" as LevelType },
     { label: "52w Low", value: quote.week52Low ?? null, type: "support" as LevelType },
   ].filter((l) => l.value != null)
 

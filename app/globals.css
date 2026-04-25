@@ -254,3 +254,34 @@
   padding: 0.5rem;
   min-height: 0;
 }
+
+/* News marquee in ticker header */
+@keyframes marquee-scroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.news-marquee {
+  animation: marquee-scroll 25s linear infinite;
+  will-change: transform;
+}
+.news-marquee:hover {
+  animation-play-state: paused;
+}
+.news-marquee {
+  animation: marquee-scroll 25s linear infinite;
+  will-change: transform;
+}
+.news-marquee:hover {
+  animation-play-state: paused;
+}
+
+/* Key Metrics container overrides per design refinement */
+.key-metrics-container {
+  font-size: 8px;
+  line-height: 1;
+  text-align: center;
+  text-transform: capitalize;
+  padding-top: 10px;
+  padding-bottom: 2px;
+  border-width: 1px;
+}
