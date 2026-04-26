@@ -2,6 +2,7 @@ import { MarketStatusBadge } from "@/components/market-status-badge"
 import { HomeAccountBar } from "@/components/home-account-bar"
 import { HomeSectorPills } from "@/components/home-sector-pills"
 import { HomeMarketNews } from "@/components/home-market-news"
+import { QuickTradeIdea } from "@/components/quick-trade-idea"
 import { AnalysisLayout, type Widget } from "@/components/analysis-layout"
 
 export const dynamic = "force-dynamic"
@@ -22,7 +23,13 @@ export default function HomePage() {
       id: "account",
       title: "Account Overview",
       content: <HomeAccountBar />,
-      defaultLayout: { x: 9, y: 0, w: 3, h: 6, minW: 2, minH: 4 },
+      defaultLayout: { x: 9, y: 0, w: 3, h: 5, minW: 2, minH: 4 },
+    },
+    {
+      id: "quick-trade",
+      title: "Quick Trade Idea",
+      content: <QuickTradeIdea />,
+      defaultLayout: { x: 9, y: 5, w: 3, h: 7, minW: 2, minH: 5 },
     },
     {
       id: "market-news",
@@ -46,7 +53,7 @@ export default function HomePage() {
 
       {/* Adjustable widget grid */}
       <div className="mx-auto max-w-[1600px] px-4 py-3">
-        <AnalysisLayout widgets={widgets} storageKey="home:grid:v1" />
+        <AnalysisLayout widgets={widgets} storageKey="home:grid:v2" />
       </div>
     </main>
   )
