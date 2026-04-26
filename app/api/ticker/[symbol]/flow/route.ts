@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server"
 import { getUnusualWhalesSummary } from "@/lib/unusual-whales"
+import { getFullMetrics } from "@/lib/flashalpha"
+import { getTradierFlowSummary } from "@/lib/tradier-unusual-activity"
 
 export async function GET(
   req: Request,
@@ -10,10 +12,14 @@ export async function GET(
   const period = (searchParams.get("period") as any) || "weekly"
 
   try {
-    const uw = await getUnusualWhalesSummary(symbol, period)
-    return NextResponse.json({ uw })
+    const [uw, flashAlpha, tradierFlow] = await Promise.all([
+      getUnusualWhalesSummary(symbol, period),
+      getFullMetrics(symbol),
+      getTradierFlowSummary(symbol),
+    ])
+    return NextResponse.json({ uw, flashAlpha, tradierFlow })
   } catch (err) {
     console.log("[v0] flow route error", err)
-    return NextResponse.json({ uw: null })
+    return NextResponse.json({ uw: null, flashAlpha: null, tradierFlow: null })
   }
 }

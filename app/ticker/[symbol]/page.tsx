@@ -12,6 +12,8 @@ import { KeyMetricsDisplay } from "@/components/key-metrics-display"
 import { TickerSupportResistance } from "@/components/ticker-support-resistance"
 import { TickerCatalystsRisks } from "@/components/ticker-catalysts-risks"
 import { TickerNews } from "@/components/ticker-news"
+import { TradierOptionsFlow } from "@/components/tradier-options-flow"
+import { AdvancedOptionsFlow } from "@/components/advanced-options-flow"
 import { AnalysisLayout, type Widget } from "@/components/analysis-layout"
 
 export const dynamic = "force-dynamic"
@@ -95,7 +97,19 @@ export default async function TickerPage({ params }: { params: Promise<{ symbol:
       id: "catalysts",
       title: "Catalysts & Risks",
       content: <TickerCatalystsRisks symbol={sym} />,
-      defaultLayout: { x: 3, y: 18, w: 6, h: 8, minW: 3, minH: 4 },
+      defaultLayout: { x: 3, y: 18, w: 3, h: 8, minW: 2, minH: 4 },
+    },
+    {
+      id: "tradier-flow",
+      title: "Tradier Options Flow",
+      content: <TradierOptionsFlow symbol={sym} />,
+      defaultLayout: { x: 6, y: 18, w: 3, h: 8, minW: 2, minH: 5 },
+    },
+    {
+      id: "advanced-flow",
+      title: "Multi-Source Flow (UW · Tradier · FA · FINRA)",
+      content: <AdvancedOptionsFlow symbol={sym} />,
+      defaultLayout: { x: 0, y: 26, w: 6, h: 10, minW: 4, minH: 8 },
     },
   ]
 
@@ -114,7 +128,7 @@ export default async function TickerPage({ params }: { params: Promise<{ symbol:
 
       {/* Free-form draggable + resizable widget grid */}
       <div className="mt-2">
-        <AnalysisLayout widgets={widgets} storageKey={`analysis:grid:v9:${sym}`} />
+        <AnalysisLayout widgets={widgets} storageKey={`analysis:grid:v10:${sym}`} />
       </div>
     </main>
   )

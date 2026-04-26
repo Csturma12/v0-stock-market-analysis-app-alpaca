@@ -10,6 +10,8 @@ import {
 import { getCompanyProfile, getBasicFinancials, getRecommendationTrends, getCompanyNews } from "@/lib/finnhub"
 import { tavilySearch } from "@/lib/tavily"
 import { getUnusualWhalesSummary } from "@/lib/unusual-whales"
+import { getFullMetrics, formatForLLM as formatFlashAlphaForLLM } from "@/lib/flashalpha"
+import { getTradierFlowSummary, formatTradierFlowForLLM } from "@/lib/tradier-unusual-activity"
 import { createClient } from "@/lib/supabase/server"
 
 export const maxDuration = 60
@@ -82,7 +84,7 @@ export async function POST(req: Request) {
   const { symbol } = await req.json()
   const sym = String(symbol).toUpperCase()
 
-  const [snapshot, profile, metrics, candles, recs, web, news, uw, pastIdeas] = await Promise.all([
+  const [snapshot, profile, metrics, candles, recs, web, news, uw, tradierFlow, flashAlpha, pastIdeas] = await Promise.all([
     getSnapshot(sym),
     getCompanyProfile(sym),
     getBasicFinancials(sym),
@@ -94,6 +96,8 @@ export async function POST(req: Request) {
     ),
     getCompanyNews(sym, 14),
     getUnusualWhalesSummary(sym),
+    getTradierFlowSummary(sym),
+    getFullMetrics(sym),
     getPastIdeas(sym),
   ])
 
@@ -183,13 +187,17 @@ ${uw.flow.alerts
     : "(no unusual options flow)"
 }
 
-GREEK EXPOSURE (dealer positioning):
+GREEK EXPOSURE (dealer positioning — Unusual Whales):
 ${
   uw?.greekExposure
     ? `Call gamma: ${uw.greekExposure.callGamma ?? "—"} | Put gamma: ${uw.greekExposure.putGamma ?? "—"}
 Call delta: ${uw.greekExposure.callDelta ?? "—"} | Put delta: ${uw.greekExposure.putDelta ?? "—"}`
     : "(no greek data)"
 }
+
+${tradierFlow ? formatTradierFlowForLLM(tradierFlow) : "(Tradier flow unavailable)"}
+
+${flashAlpha ? formatFlashAlphaForLLM(flashAlpha) : "(FlashAlpha not configured)"}
 
 OPTIONS CHAIN — nearest 3 expiries, ATM +/- 4 strikes:
 ${chainSummary}

@@ -56,61 +56,67 @@ export function TickerNews({ symbol }: { symbol: string }) {
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
-      <div className="flex items-center justify-between px-1 pb-2">
+    <div className="flex h-full flex-col overflow-hidden rounded-md border border-border/40 bg-background">
+      {/* Header pill */}
+      <div className="flex shrink-0 items-center justify-between border-b border-border/40 px-3 py-2">
         <div className="flex items-center gap-1.5">
-          <Newspaper className="h-3.5 w-3.5 text-primary" />
-          <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Top 10 Stories</span>
+          <Newspaper className="h-3 w-3 text-primary" />
+          <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+            Top Stories
+          </span>
+          <span className="rounded-full bg-primary/15 px-1.5 py-0.5 font-mono text-[9px] text-primary">
+            {articles.length}
+          </span>
         </div>
-        <span className="font-mono text-[10px] text-muted-foreground/50">Polygon · Tavily</span>
+        <span className="font-mono text-[9px] text-muted-foreground/40">Polygon · Tavily</span>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
-        <div className="flex flex-col divide-y divide-border/50">
-          {articles.map((item, idx) => (
-            <a
-              key={item.id}
-              href={item.url}
-              target="_blank"
-              rel="noreferrer"
-              className="group flex items-start gap-2.5 px-1 py-2.5 transition-colors hover:bg-muted/40"
-            >
-              {/* Index number */}
-              <span className="mt-0.5 shrink-0 font-mono text-[10px] text-muted-foreground/40 w-4 text-right">
-                {idx + 1}
-              </span>
+      {/* Scrollable list */}
+      <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
+        {articles.map((item, idx) => (
+          <a
+            key={item.id}
+            href={item.url}
+            target="_blank"
+            rel="noreferrer"
+            className="group flex items-start gap-2 border-b border-border/30 px-3 py-2 transition-colors hover:bg-muted/30 last:border-b-0"
+          >
+            {/* Rank badge */}
+            <span className="mt-0.5 shrink-0 font-mono text-[9px] text-muted-foreground/30 w-3 text-right leading-snug">
+              {idx + 1}
+            </span>
 
-              {/* Content */}
-              <div className="min-w-0 flex-1 space-y-1">
-                <p className="text-pretty text-xs font-medium leading-snug text-foreground group-hover:text-primary line-clamp-2">
-                  {item.title}
-                </p>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
-                    {item.source}
+            {/* Content */}
+            <div className="min-w-0 flex-1 space-y-0.5">
+              <p className="text-pretty text-[11px] font-medium leading-snug text-foreground group-hover:text-primary line-clamp-2">
+                {item.title}
+              </p>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="font-mono text-[9px] uppercase tracking-wide text-muted-foreground/60">
+                  {item.source}
+                </span>
+                <span className="text-muted-foreground/30">·</span>
+                <span className="font-mono text-[9px] text-muted-foreground/50">
+                  {timeAgo(item.publishedAt)}
+                </span>
+                {item.sentiment && item.sentiment !== "neutral" && (
+                  <span
+                    className={cn(
+                      "rounded-full px-1.5 py-px font-mono text-[8px] uppercase tracking-widest",
+                      item.sentiment === "bullish"
+                        ? "bg-[color:var(--color-bull)]/15 text-[color:var(--color-bull)]"
+                        : "bg-[color:var(--color-bear)]/15 text-[color:var(--color-bear)]",
+                    )}
+                  >
+                    {item.sentiment}
                   </span>
-                  <span className="font-mono text-[10px] text-muted-foreground/60">
-                    {timeAgo(item.publishedAt)}
-                  </span>
-                  {item.sentiment && item.sentiment !== "neutral" && (
-                    <span
-                      className={cn(
-                        "rounded px-1 py-0.5 font-mono text-[9px] uppercase tracking-widest",
-                        item.sentiment === "bullish"
-                          ? "bg-[color:var(--color-bull)]/15 text-[color:var(--color-bull)]"
-                          : "bg-[color:var(--color-bear)]/15 text-[color:var(--color-bear)]",
-                      )}
-                    >
-                      {item.sentiment}
-                    </span>
-                  )}
-                </div>
+                )}
               </div>
+            </div>
 
-              <ExternalLink className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground/30 group-hover:text-muted-foreground" />
-            </a>
-          ))}
-        </div>
+            <ExternalLink className="mt-0.5 h-2.5 w-2.5 shrink-0 text-muted-foreground/20 group-hover:text-muted-foreground/60 transition-colors" />
+          </a>
+        ))}
       </div>
     </div>
   )

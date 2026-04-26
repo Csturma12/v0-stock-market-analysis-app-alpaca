@@ -7,6 +7,8 @@ import {
   getPriceTarget,
   getInsiderSentiment,
 } from "@/lib/finnhub"
+import { getFullMetrics } from "@/lib/flashalpha"
+import { getTradierFlowSummary } from "@/lib/tradier-unusual-activity"
 
 export const dynamic = "force-dynamic"
 
@@ -14,7 +16,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ symbol:
   const { symbol } = await params
   const sym = symbol.toUpperCase()
 
-  const [snapshot, profile, metrics, candles, recommendations, priceTarget, insider, details, candles200] = await Promise.all([
+  const [snapshot, profile, metrics, candles, recommendations, priceTarget, insider, details, candles200, flashAlpha, tradierFlow] = await Promise.all([
     getSnapshot(sym),
     getCompanyProfile(sym),
     getBasicFinancials(sym),
@@ -24,6 +26,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ symbol:
     getInsiderSentiment(sym),
     getTickerDetails(sym),
     getAggregates(sym, 365), // ~1 year for 200-day SMA (need 280+ calendar days for 200 trading days)
+    getFullMetrics(sym),
+    getTradierFlowSummary(sym),
   ])
 
   const closes = candles.map((c) => c.close)
@@ -97,6 +101,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ symbol:
     recommendations,
     priceTarget,
     insider,
+    flashAlpha,
+    tradierFlow,
   })
 }
 
