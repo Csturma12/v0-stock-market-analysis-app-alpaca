@@ -238,7 +238,7 @@ export function HomeSectorPills() {
         count: rows.length,
         dotColor: SECTOR_DOT_COLORS[sector.name] ?? "#00ff88",
         rows,
-        defaultOpen: idx === 0,
+        defaultOpen: false,
       }
     }),
     [snapMap, medianVol]
@@ -294,7 +294,7 @@ export function HomeSectorPills() {
         <div className="overflow-y-auto p-1 space-y-0">
           <p className="font-mono text-[8px] uppercase tracking-widest text-muted-foreground/40 px-1 pb-1">Sectors</p>
           {leftSectors.map((g) => (
-            <CollapsibleGroup key={g.label} label={g.label} count={g.count} dotColor={g.dotColor} rows={g.rows} defaultOpen={g.defaultOpen} />
+            <CollapsibleGroup key={g.label} label={g.label} count={g.count} dotColor={g.dotColor} rows={g.rows} defaultOpen={false} />
           ))}
           <p className="font-mono text-[8px] uppercase tracking-widest text-muted-foreground/40 px-1 pt-2 pb-1">Themes</p>
           {leftThemes.map((g) => (

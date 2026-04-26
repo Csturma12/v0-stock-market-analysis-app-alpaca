@@ -128,7 +128,7 @@ export default async function TickerPage({ params }: { params: Promise<{ symbol:
 
       {/* Free-form draggable + resizable widget grid */}
       <div className="mt-2">
-        <AnalysisLayout widgets={widgets} storageKey={`analysis:grid:v10:${sym}`} />
+        <AnalysisLayout widgets={widgets} storageKey={`analysis:grid:v11:${sym}`} />
       </div>
     </main>
   )
