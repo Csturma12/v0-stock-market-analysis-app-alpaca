@@ -4,6 +4,8 @@ import { z } from "zod"
 import { getSnapshot, getAggregates } from "@/lib/polygon"
 import { getCompanyProfile, getBasicFinancials, getRecommendationTrends } from "@/lib/finnhub"
 import { getUnusualWhalesSummary } from "@/lib/unusual-whales"
+import { getFullMetrics, formatForLLM as formatFlashAlphaForLLM } from "@/lib/flashalpha"
+import { getTradierFlowSummary, formatTradierFlowForLLM } from "@/lib/tradier-unusual-activity"
 
 export const maxDuration = 60
 
@@ -32,13 +34,15 @@ export async function POST(req: NextRequest) {
     let fullContext = context || ""
     
     if (sym) {
-      const [snapshot, profile, metrics, candles, recs, uw] = await Promise.all([
+      const [snapshot, profile, metrics, candles, recs, uw, tradierFlow, flashAlpha] = await Promise.all([
         getSnapshot(sym),
         getCompanyProfile(sym),
         getBasicFinancials(sym),
         getAggregates(sym, 30),
         getRecommendationTrends(sym),
         getUnusualWhalesSummary(sym),
+        getTradierFlowSummary(sym),
+        getFullMetrics(sym),
       ])
 
       const spot = snapshot?.price ?? 0
@@ -59,11 +63,15 @@ DARK POOL (Unusual Whales):
 Total Size: ${uw?.darkPool?.totalSize?.toLocaleString() ?? "—"} shares
 Total Premium: $${uw?.darkPool?.totalPremium?.toLocaleString() ?? "—"}
 
-OPTIONS FLOW:
+OPTIONS FLOW (Unusual Whales):
 Call Premium: $${uw?.flow?.callPremium?.toLocaleString() ?? "—"}
 Put Premium: $${uw?.flow?.putPremium?.toLocaleString() ?? "—"}
 C/P Ratio: ${uw?.flow?.callPutRatio?.toFixed(2) ?? "—"}
 Bullish: ${uw?.flow?.bullishCount ?? 0} | Bearish: ${uw?.flow?.bearishCount ?? 0}
+
+${tradierFlow ? formatTradierFlowForLLM(tradierFlow) : "(Tradier flow unavailable)"}
+
+${flashAlpha ? formatFlashAlphaForLLM(flashAlpha) : "(FlashAlpha not configured)"}
 `.trim()
     }
 

@@ -14,7 +14,13 @@ export default async function SectorPage({ params }: { params: Promise<{ id: str
   const sector = SECTORS.find((s) => s.id === id)
   if (!sector) notFound()
 
-  // Top tickers across the sector: first N across all sub-industries, de-duped.
+  // Build sub-industry groups for the collapsible ranked widget (top 20 per group)
+  const groups = sector.subIndustries.map((sub) => ({
+    label: sub.name,
+    tickers: sub.tickers,
+  }))
+
+  // Flat list for news feed (top 8 unique tickers)
   const seen = new Set<string>()
   const trending: string[] = []
   for (const sub of sector.subIndustries) {
@@ -22,9 +28,9 @@ export default async function SectorPage({ params }: { params: Promise<{ id: str
       if (seen.has(t)) continue
       seen.add(t)
       trending.push(t)
-      if (trending.length >= 15) break
+      if (trending.length >= 8) break
     }
-    if (trending.length >= 15) break
+    if (trending.length >= 8) break
   }
 
   return (
@@ -51,10 +57,10 @@ export default async function SectorPage({ params }: { params: Promise<{ id: str
 
       <section className="mt-10">
         <div className="mb-4 flex items-baseline justify-between">
-          <h2 className="text-xl font-semibold">Trending Tickers</h2>
-          <span className="font-mono text-xs uppercase tracking-widest text-muted-foreground">Live snapshot</span>
+          <h2 className="text-xl font-semibold">Top 20 by Conviction</h2>
+          <span className="font-mono text-xs uppercase tracking-widest text-muted-foreground">Ranked · Live snapshot</span>
         </div>
-        <TrendingTickers tickers={trending} />
+        <TrendingTickers groups={groups} maxPerGroup={20} />
       </section>
 
       <section className="mt-10">
