@@ -1,70 +1,60 @@
-import { SECTORS } from "@/lib/constants"
-import { THEMES } from "@/lib/themes"
-import { SectorGrid } from "@/components/sector-grid"
-import { ThemeGrid } from "@/components/theme-grid"
 import { MarketStatusBadge } from "@/components/market-status-badge"
 import { HomeAccountBar } from "@/components/home-account-bar"
-import { HomeWatchlistPills } from "@/components/home-watchlist-pills"
+import { HomeSectorPills } from "@/components/home-sector-pills"
+import { HomeMarketNews } from "@/components/home-market-news"
 
 export const dynamic = "force-dynamic"
 
 export default function HomePage() {
   return (
-    <main className="mx-auto max-w-7xl px-4 py-8 md:px-6 md:py-12">
-
-      {/* Hero header — 3-column layout matching sketch */}
-      <header className="mb-8 md:mb-12">
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-
-          {/* LEFT — Hero text + market status */}
-          <div className="flex flex-col gap-3 lg:col-span-1">
-            <div className="flex items-center justify-between">
-              <span className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
-                Stock Market / Sectors
-              </span>
-              <MarketStatusBadge />
-            </div>
-            <h1 className="text-balance text-4xl font-semibold tracking-tight md:text-5xl">
-              US Stock Market{" "}
-              <span className="text-primary">Intelligence</span>
+    <main className="flex h-screen flex-col overflow-hidden bg-background">
+      {/* Compact header */}
+      <header className="shrink-0 border-b border-border/40 px-4 py-3">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <h1 className="text-lg font-semibold tracking-tight">
+              Stock Market <span className="text-primary">Intelligence</span>
             </h1>
-            <p className="text-pretty leading-relaxed text-muted-foreground">
-              Explore all 11 GICS sectors plus cross-cutting themes. Drill into sub-industries, trending tickers, news,
-              sentiment, and AI-powered trade ideas backed by your own learning memory.
-            </p>
+            <MarketStatusBadge />
           </div>
-
-          {/* CENTER — Account info */}
-          <div className="lg:col-span-1">
-            <HomeAccountBar />
-          </div>
-
-          {/* RIGHT — Watchlist rolling pills */}
-          <div className="lg:col-span-1">
-            <HomeWatchlistPills />
-          </div>
-
+          <HomeAccountBar compact />
         </div>
       </header>
 
-      <section className="mb-12">
-        <div className="mb-4 flex items-baseline justify-between">
-          <h2 className="text-xl font-semibold">Themes</h2>
-          <span className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
-            Cross-sector · Event-driven
-          </span>
+      {/* Top half — two large sector pill boxes */}
+      <section className="flex-1 min-h-0 border-b border-border/40">
+        <div className="mx-auto grid h-full max-w-7xl grid-cols-1 gap-3 p-4 md:grid-cols-2">
+          {/* Left box — first 6 sectors */}
+          <div className="flex flex-col rounded-lg border border-border/50 bg-card/30 overflow-hidden">
+            <div className="shrink-0 border-b border-border/40 px-3 py-2">
+              <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                Sectors 1–6 · Top 10 by Conviction
+              </span>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
+              <HomeSectorPills column={0} />
+            </div>
+          </div>
+
+          {/* Right box — last 5 sectors */}
+          <div className="flex flex-col rounded-lg border border-border/50 bg-card/30 overflow-hidden">
+            <div className="shrink-0 border-b border-border/40 px-3 py-2">
+              <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                Sectors 7–11 · Top 10 by Conviction
+              </span>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
+              <HomeSectorPills column={1} />
+            </div>
+          </div>
         </div>
-        <ThemeGrid themes={THEMES} />
       </section>
 
-      <section>
-        <div className="mb-4 flex items-baseline justify-between">
-          <h2 className="text-xl font-semibold">Sectors</h2>
-          <span className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
-            {SECTORS.length} GICS sectors
-          </span>
+      {/* Bottom half — market news scrollable box */}
+      <section className="flex-1 min-h-0">
+        <div className="mx-auto h-full max-w-7xl p-4">
+          <HomeMarketNews />
         </div>
-        <SectorGrid sectors={SECTORS} />
       </section>
     </main>
   )

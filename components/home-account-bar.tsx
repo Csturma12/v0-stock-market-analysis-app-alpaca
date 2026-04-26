@@ -10,7 +10,7 @@ function fmt(n: number) {
   return `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
-export function HomeAccountBar() {
+export function HomeAccountBar({ compact = false }: { compact?: boolean }) {
   const { data: accData } = useSWR("/api/trading/account", fetcher, { refreshInterval: 15_000 })
   const { data: posData } = useSWR("/api/trading/positions", fetcher, { refreshInterval: 15_000 })
 
@@ -21,12 +21,36 @@ export function HomeAccountBar() {
 
   const equity = Number(acc.equity ?? 0)
   const lastEquity = Number(acc.last_equity ?? 0)
-  const buyingPower = Number(acc.buying_power ?? 0)
-  const cash = Number(acc.cash ?? 0)
   const dayPnl = equity - lastEquity
   const dayPct = lastEquity ? (dayPnl / lastEquity) * 100 : 0
-  const totalUnrealized = positions.reduce((s, p) => s + Number(p.unrealized_pl ?? 0), 0)
   const up = dayPct >= 0
+
+  // Compact mode — single row for header
+  if (compact) {
+    return (
+      <div className="flex items-center gap-4 rounded-md border border-border/50 bg-card/40 px-3 py-1.5">
+        <div className="flex items-center gap-1.5">
+          <Wallet className="h-3 w-3 text-muted-foreground" />
+          <span className="font-mono text-[10px] text-muted-foreground">Equity</span>
+          <span className="font-mono text-xs font-semibold tabular-nums">{fmt(equity)}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          {up ? <TrendingUp className="h-3 w-3 text-[color:var(--color-bull)]" /> : <TrendingDown className="h-3 w-3 text-[color:var(--color-bear)]" />}
+          <span className={cn("font-mono text-xs font-semibold tabular-nums", up ? "text-[color:var(--color-bull)]" : "text-[color:var(--color-bear)]")}>
+            {up ? "+" : ""}{fmt(dayPnl)} ({up ? "+" : ""}{dayPct.toFixed(2)}%)
+          </span>
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="font-mono text-[10px] text-muted-foreground">Positions</span>
+          <span className="font-mono text-xs font-semibold">{positions.length}</span>
+        </div>
+      </div>
+    )
+  }
+
+  const buyingPower = Number(acc.buying_power ?? 0)
+  const cash = Number(acc.cash ?? 0)
+  const totalUnrealized = positions.reduce((s, p) => s + Number(p.unrealized_pl ?? 0), 0)
 
   return (
     <div className="rounded-lg border border-border bg-card/60 px-4 py-3">
