@@ -73,7 +73,7 @@ export default async function TickerPage({ params }: { params: Promise<{ symbol:
       id: "key-metrics",
       title: "Key Metrics",
       content: <KeyMetricsDisplay symbol={sym} />,
-      defaultLayout: { x: 3, y: 12, w: 3, h: 6, minW: 2, minH: 4 },
+      defaultLayout: { x: 3, y: 12, w: 3, h: 4, minW: 2, minH: 3 },
     },
     {
       id: "patterns",
@@ -128,7 +128,7 @@ export default async function TickerPage({ params }: { params: Promise<{ symbol:
 
       {/* Free-form draggable + resizable widget grid */}
       <div className="mt-2">
-        <AnalysisLayout widgets={widgets} storageKey={`analysis:grid:v11:${sym}`} />
+        <AnalysisLayout widgets={widgets} storageKey={`analysis:grid:v12:${sym}`} />
       </div>
     </main>
   )

@@ -10,17 +10,17 @@ export function KeyMetrics({ metrics }: { metrics: Metric[] }) {
 
   return (
     <div className="key-metrics-container flex h-full flex-col overflow-hidden">
-      <div className="shrink-0 border-b border-border/40 px-2 py-1">
-        <span className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">Key Metrics</span>
+      <div className="shrink-0 border-b border-border/40 px-1.5 py-0.5">
+        <span className="font-mono text-[8px] uppercase tracking-widest text-muted-foreground">Metrics</span>
       </div>
-      <div className="grid flex-1 grid-cols-3 gap-px bg-border/30 overflow-hidden">
+      <div className="grid flex-1 grid-cols-3 gap-0 bg-border/30 overflow-hidden">
         {metrics.map((m) => (
           <div
             key={m.label}
-            className="flex flex-col justify-center gap-0.5 bg-card px-2 py-1.5"
+            className="flex flex-col justify-center gap-0 bg-card px-1 py-1"
           >
-            <span className="font-mono text-[9px] leading-tight text-muted-foreground/70">{m.label}</span>
-            <span className="font-mono text-[11px] font-semibold tabular-nums leading-tight text-foreground">{m.value}</span>
+            <span className="font-mono text-[7px] leading-none text-muted-foreground/60">{m.label}</span>
+            <span className="font-mono text-[9px] font-semibold tabular-nums leading-none text-foreground">{m.value}</span>
           </div>
         ))}
       </div>
