@@ -274,27 +274,24 @@ export function HomeSectorPills() {
   const rightThemes  = themeGroups.slice(5)
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-md border border-border/50 bg-card/20">
-      {/* Box header */}
-      <div className="shrink-0 flex items-center justify-between border-b border-border/40 bg-card/60 px-3 py-2">
-        <span className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">Sectors &amp; Themes</span>
-        <div className="flex items-center gap-3">
-          <span className="flex items-center gap-1 font-mono text-[8px] text-[#00ff88]">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#00ff88]" />Bullish
-          </span>
-          <span className="flex items-center gap-1 font-mono text-[8px] text-amber-400">
-            <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />Neutral
-          </span>
-          <span className="flex items-center gap-1 font-mono text-[8px] text-[#ff4466]">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#ff4466]" />Bearish
-          </span>
-        </div>
+    <div className="flex h-full flex-col overflow-hidden">
+      {/* Legend */}
+      <div className="shrink-0 flex items-center justify-end gap-3 px-2 py-1 border-b border-border/30">
+        <span className="flex items-center gap-1 font-mono text-[8px] text-[#00ff88]">
+          <span className="h-1.5 w-1.5 rounded-full bg-[#00ff88]" />Bullish
+        </span>
+        <span className="flex items-center gap-1 font-mono text-[8px] text-amber-400">
+          <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />Neutral
+        </span>
+        <span className="flex items-center gap-1 font-mono text-[8px] text-[#ff4466]">
+          <span className="h-1.5 w-1.5 rounded-full bg-[#ff4466]" />Bearish
+        </span>
       </div>
 
       {/* Two-column grid */}
-      <div className="flex-1 min-h-0 grid grid-cols-2 divide-x divide-border/40 overflow-hidden">
+      <div className="flex-1 min-h-0 grid grid-cols-2 divide-x divide-border/30 overflow-hidden">
         {/* Left column */}
-        <div className="overflow-y-auto p-2 space-y-0">
+        <div className="overflow-y-auto p-1 space-y-0">
           <p className="font-mono text-[8px] uppercase tracking-widest text-muted-foreground/40 px-1 pb-1">Sectors</p>
           {leftSectors.map((g) => (
             <CollapsibleGroup key={g.label} label={g.label} count={g.count} dotColor={g.dotColor} rows={g.rows} defaultOpen={g.defaultOpen} />
@@ -306,7 +303,7 @@ export function HomeSectorPills() {
         </div>
 
         {/* Right column */}
-        <div className="overflow-y-auto p-2 space-y-0">
+        <div className="overflow-y-auto p-1 space-y-0">
           <p className="font-mono text-[8px] uppercase tracking-widest text-muted-foreground/40 px-1 pb-1">Sectors</p>
           {rightSectors.map((g) => (
             <CollapsibleGroup key={g.label} label={g.label} count={g.count} dotColor={g.dotColor} rows={g.rows} defaultOpen={false} />
