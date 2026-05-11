@@ -256,11 +256,157 @@ export async function searchTickers(query: string, limit = 10): Promise<TickerSe
 export async function getSnapshotBatch(tickers: string[]) {
   const out: Array<NonNullable<Awaited<ReturnType<typeof getSnapshot>>>> = []
   // Parallel with a small cap to avoid 429s on free tier.
-  const CHUNK = 3
+  const CHUNK = 5 // Increased for paid tier
   for (let i = 0; i < tickers.length; i += CHUNK) {
     const slice = tickers.slice(i, i + CHUNK)
     const results = await Promise.all(slice.map((t) => getSnapshot(t)))
     for (const r of results) if (r) out.push(r)
   }
   return out
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Financials / Fundamentals (Paid tier - vX endpoints)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type FinancialStatement = {
+  fiscalPeriod: string
+  fiscalYear: number
+  filingDate: string
+  revenue: number | null
+  netIncome: number | null
+  grossProfit: number | null
+  operatingIncome: number | null
+  eps: number | null
+  epsBasic: number | null
+  totalAssets: number | null
+  totalLiabilities: number | null
+  totalEquity: number | null
+  cashAndEquivalents: number | null
+  operatingCashFlow: number | null
+  freeCashFlow: number | null
+}
+
+export async function getFinancials(ticker: string, limit = 8): Promise<FinancialStatement[]> {
+  try {
+    const data = await poly<{ results?: any[] }>(
+      `/vX/reference/financials`,
+      { ticker, timeframe: "quarterly", limit, order: "desc", sort: "filing_date" }
+    )
+    return (
+      data.results?.map((r) => {
+        const inc = r.financials?.income_statement ?? {}
+        const bal = r.financials?.balance_sheet ?? {}
+        const cf = r.financials?.cash_flow_statement ?? {}
+        return {
+          fiscalPeriod: r.fiscal_period ?? "",
+          fiscalYear: r.fiscal_year ?? 0,
+          filingDate: r.filing_date ?? "",
+          revenue: inc.revenues?.value ?? null,
+          netIncome: inc.net_income_loss?.value ?? null,
+          grossProfit: inc.gross_profit?.value ?? null,
+          operatingIncome: inc.operating_income_loss?.value ?? null,
+          eps: inc.basic_earnings_per_share?.value ?? null,
+          epsBasic: inc.diluted_earnings_per_share?.value ?? null,
+          totalAssets: bal.assets?.value ?? null,
+          totalLiabilities: bal.liabilities?.value ?? null,
+          totalEquity: bal.equity?.value ?? null,
+          cashAndEquivalents: bal.cash_and_cash_equivalents?.value ?? null,
+          operatingCashFlow: cf.net_cash_flow_from_operating_activities?.value ?? null,
+          freeCashFlow: cf.net_cash_flow?.value ?? null,
+        }
+      }) ?? []
+    )
+  } catch (e) {
+    console.error("[Polygon] getFinancials error:", (e as Error).message)
+    return []
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Analyst Ratings / Recommendations
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type AnalystRating = {
+  ticker: string
+  targetPrice: number | null
+  rating: string | null
+  ratingBuy: number
+  ratingSell: number
+  ratingHold: number
+  ratingStrongBuy: number
+  ratingStrongSell: number
+  updated: string
+}
+
+export async function getAnalystRatings(ticker: string): Promise<AnalystRating | null> {
+  try {
+    // Polygon doesn't have direct analyst ratings, but we can use ticker details
+    // For now, return null - UW is better for this
+    return null
+  } catch {
+    return null
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Dividends
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type Dividend = {
+  exDate: string
+  payDate: string
+  amount: number
+  frequency: number
+  type: string
+}
+
+export async function getDividends(ticker: string, limit = 12): Promise<Dividend[]> {
+  try {
+    const data = await poly<{ results?: any[] }>(
+      `/v3/reference/dividends`,
+      { ticker, limit, order: "desc", sort: "ex_dividend_date" }
+    )
+    return (
+      data.results?.map((d) => ({
+        exDate: d.ex_dividend_date ?? "",
+        payDate: d.pay_date ?? "",
+        amount: d.cash_amount ?? 0,
+        frequency: d.frequency ?? 0,
+        type: d.dividend_type ?? "",
+      })) ?? []
+    )
+  } catch {
+    return []
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Market Status
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function getMarketStatus(): Promise<{ market: string; serverTime: string; exchanges: Record<string, string> } | null> {
+  try {
+    const data = await poly<{ market?: string; serverTime?: string; exchanges?: any }>(`/v1/marketstatus/now`)
+    return {
+      market: data.market ?? "unknown",
+      serverTime: data.serverTime ?? "",
+      exchanges: data.exchanges ?? {},
+    }
+  } catch {
+    return null
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Related Companies
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function getRelatedTickers(ticker: string): Promise<string[]> {
+  try {
+    const data = await poly<{ results?: any[] }>(`/v1/related-companies/${ticker}`)
+    return data.results?.map((r) => r.ticker) ?? []
+  } catch {
+    return []
+  }
 }
