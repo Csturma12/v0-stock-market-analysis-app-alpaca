@@ -28,13 +28,13 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 export function ShortInterestWidget({ symbol }: Props) {
   const [tab, setTab] = useState<"chart" | "table">("chart")
-  const { data, isLoading, error } = useSWR<ShortData[]>(
+  const { data, isLoading, error } = useSWR<{ data: ShortData[] }>(
     `/api/uw/ticker/${symbol}/shorts`,
     fetcher,
     { refreshInterval: 300_000 }
   )
 
-  const rows = data ?? []
+  const rows = data?.data ?? []
   const latest = rows[0]
 
   return (

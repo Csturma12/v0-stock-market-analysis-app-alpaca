@@ -32,13 +32,13 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 export function EarningsHistoryWidget({ symbol }: Props) {
   const [tab, setTab] = useState<"chart" | "table">("chart")
-  const { data, isLoading, error } = useSWR<Earnings[]>(
+  const { data, isLoading, error } = useSWR<{ data: Earnings[] }>(
     `/api/uw/ticker/${symbol}/earnings`,
     fetcher,
     { refreshInterval: 600_000 }
   )
 
-  const rows = data ?? []
+  const rows = data?.data ?? []
 
   // Calculate stats
   const withMove = rows.filter((r) => r.priceMove !== null)

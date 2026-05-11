@@ -21,13 +21,13 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 export function InsiderActivityWidget({ symbol }: Props) {
   const [tab, setTab] = useState<"all" | "buys" | "sells">("all")
-  const { data, isLoading, error } = useSWR<Insider[]>(
+  const { data, isLoading, error } = useSWR<{ data: Insider[] }>(
     `/api/uw/ticker/${symbol}/insider`,
     fetcher,
     { refreshInterval: 300_000 }
   )
 
-  const rows = data ?? []
+  const rows = data?.data ?? []
   const filtered = tab === "all" ? rows : rows.filter((r) => r.transactionType === (tab === "buys" ? "BUY" : "SELL"))
 
   // Stats

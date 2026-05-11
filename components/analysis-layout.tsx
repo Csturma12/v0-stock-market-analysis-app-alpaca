@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react"
 import GridLayout, { WidthProvider, type Layout } from "react-grid-layout"
 import {
-  RotateCcw, Lock, Unlock, LayoutGrid, Save, Trash2, ChevronDown, Check, Plus,
+  RotateCcw, Lock, Unlock, LayoutGrid, Save, Trash2, ChevronDown, Check, Plus, Eye, EyeOff,
+  LineChart, Brain, Calculator, TrendingUp, Search, Zap,
 } from "lucide-react"
 import { WidgetFrame } from "./widget-frame"
 import {
@@ -13,6 +14,9 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu"
 import {
   Dialog,
@@ -43,7 +47,54 @@ type SavedLayout = {
   id: string
   name: string
   layout: Layout[]
+  hiddenWidgets: string[]
   createdAt: number
+}
+
+// Template presets - which widgets to show for each analysis type
+const TEMPLATE_PRESETS: Record<string, { name: string; icon: typeof LineChart; widgets: string[]; description: string }> = {
+  "all": {
+    name: "All Widgets",
+    icon: LayoutGrid,
+    description: "Show all available widgets",
+    widgets: [], // Empty = all
+  },
+  "analyst": {
+    name: "Analyst Analysis",
+    icon: LineChart,
+    description: "Focus on analyst ratings, price targets, and recommendations",
+    widgets: ["chart", "analyst-ratings", "news", "key-metrics", "earnings-history", "fundamentals"],
+  },
+  "ai": {
+    name: "AI Analysis",
+    icon: Brain,
+    description: "AI-powered trade ideas, patterns, and catalysts",
+    widgets: ["chart", "trade-idea", "patterns", "catalysts", "technicals", "news"],
+  },
+  "fundamentals": {
+    name: "Fundamentals & Technicals",
+    icon: Calculator,
+    description: "Deep dive into company financials and technical indicators",
+    widgets: ["chart", "fundamentals", "earnings-history", "technicals", "support-resistance", "key-metrics"],
+  },
+  "options": {
+    name: "Options Trading",
+    icon: TrendingUp,
+    description: "Options flow, volatility, and dark pool activity",
+    widgets: ["chart", "options-blocks", "volatility", "contract-drill-down", "equity-blocks", "short-interest"],
+  },
+  "research": {
+    name: "Market Research",
+    icon: Search,
+    description: "Comprehensive research including ETF exposure and insider activity",
+    widgets: ["chart", "news", "etf-exposure", "insider-activity", "analyst-ratings", "catalysts"],
+  },
+  "daytrading": {
+    name: "Day Trading",
+    icon: Zap,
+    description: "Real-time flow, technicals, and support/resistance levels",
+    widgets: ["chart", "technicals", "support-resistance", "equity-blocks", "options-blocks", "volatility"],
+  },
 }
 
 type AnalysisLayoutProps = {
@@ -71,10 +122,12 @@ export function AnalysisLayout({
   )
 
   const [layout, setLayout] = useState<Layout[]>(defaults)
+  const [hiddenWidgets, setHiddenWidgets] = useState<Set<string>>(new Set())
   const [hydrated, setHydrated] = useState(false)
   const [locked, setLocked] = useState(true) // Default to locked
   const [savedLayouts, setSavedLayouts] = useState<SavedLayout[]>([])
   const [activeLayoutId, setActiveLayoutId] = useState<string | null>(null)
+  const [activeTemplate, setActiveTemplate] = useState<string>("all")
   const [saveDialogOpen, setSaveDialogOpen] = useState(false)
   const [newLayoutName, setNewLayoutName] = useState("")
 
@@ -108,11 +161,71 @@ export function AnalysisLayout({
       if (activeRaw) {
         setActiveLayoutId(activeRaw)
       }
+
+      // Load hidden widgets
+      const hiddenRaw = localStorage.getItem(`${storageKey}:hidden`)
+      if (hiddenRaw) {
+        setHiddenWidgets(new Set(JSON.parse(hiddenRaw)))
+      }
+
+      // Load active template
+      const templateRaw = localStorage.getItem(`${storageKey}:template`)
+      if (templateRaw) {
+        setActiveTemplate(templateRaw)
+      }
     } catch {
       /* ignore */
     }
     setHydrated(true)
   }, [widgets, storageKey, savedLayoutsKey])
+
+  // Persist hidden widgets
+  const persistHiddenWidgets = (hidden: Set<string>) => {
+    try {
+      localStorage.setItem(`${storageKey}:hidden`, JSON.stringify([...hidden]))
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const handleHideWidget = (widgetId: string) => {
+    const next = new Set(hiddenWidgets)
+    next.add(widgetId)
+    setHiddenWidgets(next)
+    persistHiddenWidgets(next)
+  }
+
+  const handleShowWidget = (widgetId: string) => {
+    const next = new Set(hiddenWidgets)
+    next.delete(widgetId)
+    setHiddenWidgets(next)
+    persistHiddenWidgets(next)
+  }
+
+  const handleApplyTemplate = (templateKey: string) => {
+    const template = TEMPLATE_PRESETS[templateKey]
+    if (!template) return
+
+    setActiveTemplate(templateKey)
+    
+    if (templateKey === "all") {
+      // Show all widgets
+      setHiddenWidgets(new Set())
+      persistHiddenWidgets(new Set())
+    } else {
+      // Hide widgets not in the template
+      const toShow = new Set(template.widgets)
+      const toHide = new Set(widgets.filter((w) => !toShow.has(w.id)).map((w) => w.id))
+      setHiddenWidgets(toHide)
+      persistHiddenWidgets(toHide)
+    }
+
+    try {
+      localStorage.setItem(`${storageKey}:template`, templateKey)
+    } catch {
+      /* ignore */
+    }
+  }
 
   const handleChange = (next: Layout[]) => {
     setLayout(next)
@@ -126,9 +239,13 @@ export function AnalysisLayout({
   const handleReset = () => {
     setLayout(defaults)
     setActiveLayoutId(null)
+    setHiddenWidgets(new Set())
+    setActiveTemplate("all")
     try {
       localStorage.removeItem(storageKey)
       localStorage.removeItem(`${storageKey}:active`)
+      localStorage.removeItem(`${storageKey}:hidden`)
+      localStorage.removeItem(`${storageKey}:template`)
     } catch {
       /* ignore */
     }
@@ -141,6 +258,7 @@ export function AnalysisLayout({
       id: `layout-${Date.now()}`,
       name: newLayoutName.trim(),
       layout: layout.map((l) => ({ ...l })),
+      hiddenWidgets: [...hiddenWidgets],
       createdAt: Date.now(),
     }
 
@@ -171,10 +289,16 @@ export function AnalysisLayout({
     })
     setLayout(merged)
     setActiveLayoutId(savedLayout.id)
+    
+    // Load hidden widgets from saved layout
+    const hidden = new Set(savedLayout.hiddenWidgets ?? [])
+    setHiddenWidgets(hidden)
+    setActiveTemplate("all") // Clear template when loading a saved layout
 
     try {
       localStorage.setItem(storageKey, JSON.stringify(merged))
       localStorage.setItem(`${storageKey}:active`, savedLayout.id)
+      persistHiddenWidgets(hidden)
     } catch {
       /* ignore */
     }
@@ -208,7 +332,81 @@ export function AnalysisLayout({
 
   return (
     <div className="w-full">
-      <div className="mb-2 flex items-center gap-2">
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        {/* Template Presets Dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1.5 border-border bg-card font-mono text-xs"
+            >
+              {(() => {
+                const T = TEMPLATE_PRESETS[activeTemplate]
+                const Icon = T?.icon ?? LayoutGrid
+                return <Icon className="h-3.5 w-3.5" />
+              })()}
+              <span className="hidden sm:inline">{TEMPLATE_PRESETS[activeTemplate]?.name ?? "All"}</span>
+              <ChevronDown className="h-3 w-3 opacity-60" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-64">
+            <DropdownMenuLabel className="font-mono text-[0.65rem] uppercase tracking-wider text-muted-foreground">
+              Analysis Templates
+            </DropdownMenuLabel>
+            {Object.entries(TEMPLATE_PRESETS).map(([key, preset]) => {
+              const Icon = preset.icon
+              return (
+                <DropdownMenuItem
+                  key={key}
+                  onSelect={() => handleApplyTemplate(key)}
+                  className="flex cursor-pointer items-center gap-2"
+                >
+                  <Icon className="h-4 w-4 text-muted-foreground" />
+                  <div className="flex flex-1 flex-col">
+                    <span className="text-sm">{preset.name}</span>
+                    <span className="text-[10px] text-muted-foreground">{preset.description}</span>
+                  </div>
+                  {activeTemplate === key && <Check className="h-3.5 w-3.5 text-primary" />}
+                </DropdownMenuItem>
+              )
+            })}
+            
+            <DropdownMenuSeparator />
+            
+            {/* Widget visibility submenu */}
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger className="flex items-center gap-2">
+                <Eye className="h-3.5 w-3.5" />
+                <span>Toggle Widgets</span>
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="w-56 max-h-80 overflow-y-auto">
+                {widgets.map((w) => (
+                  <DropdownMenuItem
+                    key={w.id}
+                    onSelect={(e) => {
+                      e.preventDefault()
+                      if (hiddenWidgets.has(w.id)) {
+                        handleShowWidget(w.id)
+                      } else {
+                        handleHideWidget(w.id)
+                      }
+                    }}
+                    className="flex cursor-pointer items-center gap-2"
+                  >
+                    {hiddenWidgets.has(w.id) ? (
+                      <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
+                    ) : (
+                      <Eye className="h-3.5 w-3.5 text-green-500" />
+                    )}
+                    <span className={hiddenWidgets.has(w.id) ? "text-muted-foreground" : ""}>{w.title}</span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         {/* Layout Manager Dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -331,7 +529,7 @@ export function AnalysisLayout({
 
       <ReactGridLayout
         className="analysis-grid"
-        layout={layout}
+        layout={layout.filter((l) => !hiddenWidgets.has(l.i))}
         cols={12}
         rowHeight={40}
         margin={[2, 2]}
@@ -344,11 +542,19 @@ export function AnalysisLayout({
         isDraggable={!locked}
         resizeHandles={ALL_HANDLES}
       >
-        {widgets.map((w) => (
-          <div key={w.id} className="overflow-hidden">
-            <WidgetFrame title={w.title}>{w.content}</WidgetFrame>
-          </div>
-        ))}
+        {widgets
+          .filter((w) => !hiddenWidgets.has(w.id))
+          .map((w) => (
+            <div key={w.id} className="overflow-hidden">
+              <WidgetFrame
+                title={w.title}
+                showClose={!locked}
+                onClose={() => handleHideWidget(w.id)}
+              >
+                {w.content}
+              </WidgetFrame>
+            </div>
+          ))}
       </ReactGridLayout>
 
       {/* Save Layout Dialog */}
