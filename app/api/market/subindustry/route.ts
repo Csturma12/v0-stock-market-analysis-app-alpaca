@@ -1,8 +1,33 @@
 import { NextResponse } from "next/server"
 import { getSubIndustry } from "@/lib/constants"
 import { getSnapshotBatch } from "@/lib/polygon"
+import { getQuotes } from "@/lib/tradier"
 
 export const revalidate = 60
+
+// Use Tradier for quotes (real-time, no rate limit issues)
+async function getQuotesViaTradier(tickers: string[]) {
+  const quotes = await getQuotes(tickers)
+  return quotes.map((q) => ({
+    ticker: q.symbol,
+    price: q.last ?? null,
+    change: q.change ?? null,
+    changePct: q.change_percentage ?? null,
+    volume: q.volume ?? null,
+  }))
+}
+
+// Use Polygon as fallback
+async function getQuotesViaPolygon(tickers: string[]) {
+  const snaps = await getSnapshotBatch(tickers)
+  return snaps.map((s) => ({
+    ticker: s.ticker,
+    price: s.price,
+    change: s.price != null && s.prevClose != null ? s.price - s.prevClose : null,
+    changePct: s.changePct ?? null,
+    volume: s.volume ?? null,
+  }))
+}
 
 export async function GET(req: Request) {
   const url = new URL(req.url)
@@ -22,15 +47,28 @@ export async function GET(req: Request) {
     tickers = ctx.sub.tickers
   }
 
-  const snaps = await getSnapshotBatch(tickers)
-  // Component shape: { ticker, price, change, changePct, volume }
-  const data = snaps.map((s) => ({
-    ticker: s.ticker,
-    price: s.price,
-    change: s.price != null && s.prevClose != null ? s.price - s.prevClose : null,
-    changePct: s.changePct ?? null,
-    volume: s.volume ?? null,
-  }))
+  // Try Tradier first (real-time), fall back to Polygon (15-min delay)
+  let data: Array<{ ticker: string; price: number | null; change: number | null; changePct: number | null; volume: number | null }> = []
+  
+  const hasTradier = !!process.env.TRADIER_API_KEY
+  const hasPolygon = !!process.env.POLYGON_API_KEY
+
+  if (hasTradier) {
+    try {
+      data = await getQuotesViaTradier(tickers)
+    } catch (err) {
+      console.error("[subindustry] Tradier error:", err)
+    }
+  }
+
+  // If Tradier returned nothing or isn't configured, try Polygon
+  if (data.length === 0 && hasPolygon) {
+    try {
+      data = await getQuotesViaPolygon(tickers)
+    } catch (err) {
+      console.error("[subindustry] Polygon error:", err)
+    }
+  }
 
   return NextResponse.json({ data, tickers: data, updatedAt: new Date().toISOString() })
 }
