@@ -27,13 +27,13 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 export function EtfExposureWidget({ symbol }: Props) {
   const [tab, setTab] = useState<"chart" | "table">("chart")
-  const { data, isLoading, error } = useSWR<EtfExp[]>(
+  const { data, isLoading, error } = useSWR<{ data: EtfExp[] }>(
     `/api/uw/ticker/${symbol}/etf-exposure`,
     fetcher,
     { refreshInterval: 600_000 }
   )
 
-  const rows = data ?? []
+  const rows = data?.data ?? []
   const topRows = rows.slice(0, 15)
   const totalValue = rows.reduce((a, r) => a + r.marketValue, 0)
 

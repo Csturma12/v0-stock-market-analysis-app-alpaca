@@ -22,13 +22,13 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 export function AnalystRatingsWidget({ symbol }: Props) {
   const [tab, setTab] = useState<"all" | "upgrades" | "downgrades">("all")
-  const { data, isLoading, error } = useSWR<Rating[]>(
+  const { data, isLoading, error } = useSWR<{ data: Rating[] }>(
     `/api/uw/ticker/${symbol}/analysts`,
     fetcher,
     { refreshInterval: 600_000 }
   )
 
-  const rows = data ?? []
+  const rows = data?.data ?? []
   const filtered = tab === "all" ? rows : rows.filter((r) => r.action === (tab === "upgrades" ? "upgrade" : "downgrade"))
   
   // Stats
