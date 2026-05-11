@@ -18,16 +18,21 @@ import { formatLargeNumber } from "@/lib/format"
 type Props = { symbol: string }
 type Financial = {
   period: string
+  year?: number
+  date?: string
   revenue: number | null
   netIncome: number | null
   grossProfit: number | null
   operatingIncome: number | null
   totalAssets: number | null
   totalLiabilities: number | null
+  totalEquity?: number | null
+  cash?: number | null
   operatingCashFlow: number | null
   freeCashFlow: number | null
-  epsActual: number | null
-  epsEstimate: number | null
+  eps?: number | null // Polygon
+  epsActual?: number | null // UW
+  epsEstimate?: number | null // UW
 }
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
@@ -83,7 +88,11 @@ export function FundamentalsWidget({ symbol }: Props) {
           </div>
           <div className="bg-muted/50 rounded p-2">
             <div className="text-muted-foreground">EPS</div>
-            <div className="font-medium">{latest.epsActual !== null ? `$${latest.epsActual.toFixed(2)}` : "—"}</div>
+            <div className="font-medium">
+              {(latest.eps ?? latest.epsActual) !== null 
+                ? `$${(latest.eps ?? latest.epsActual)?.toFixed(2)}` 
+                : "—"}
+            </div>
           </div>
         </div>
       )}
@@ -132,8 +141,7 @@ export function FundamentalsWidget({ symbol }: Props) {
                 )}
                 {chartView === "eps" && (
                   <>
-                    <Bar dataKey="epsActual" name="EPS Actual" fill="#22c55e" />
-                    <Bar dataKey="epsEstimate" name="EPS Est" fill="#94a3b8" />
+                    <Bar dataKey={(d) => d.eps ?? d.epsActual} name="EPS" fill="#22c55e" />
                   </>
                 )}
               </BarChart>
