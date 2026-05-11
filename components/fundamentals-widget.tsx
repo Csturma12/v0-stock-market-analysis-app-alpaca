@@ -171,7 +171,9 @@ export function FundamentalsWidget({ symbol }: Props) {
                   <td className={`py-1 text-right ${r.freeCashFlow && r.freeCashFlow < 0 ? "text-red-500" : ""}`}>
                     {r.freeCashFlow ? formatLargeNumber(r.freeCashFlow) : "—"}
                   </td>
-                  <td className="py-1 text-right">{r.epsActual !== null ? `$${r.epsActual.toFixed(2)}` : "—"}</td>
+                  <td className="py-1 text-right">
+                    {(r.eps ?? r.epsActual) !== null ? `$${(r.eps ?? r.epsActual)?.toFixed(2)}` : "—"}
+                  </td>
                 </tr>
               ))}
             </tbody>
