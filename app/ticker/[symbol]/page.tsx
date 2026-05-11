@@ -2,18 +2,22 @@ import Link from "next/link"
 import { ChevronLeft } from "lucide-react"
 import { TickerHeader } from "@/components/ticker-header"
 import { TickerChart } from "@/components/ticker-chart"
-import { TickerFundamentals } from "@/components/ticker-fundamentals"
 import { TickerTechnicals } from "@/components/ticker-technicals"
-import { TickerAnalystRatings } from "@/components/ticker-analyst-ratings"
-import { TickerDarkPool } from "@/components/ticker-dark-pool"
 import { TickerPatterns } from "@/components/ticker-patterns"
 import { TradeIdeaPanel } from "@/components/trade-idea-panel"
 import { KeyMetricsDisplay } from "@/components/key-metrics-display"
 import { TickerSupportResistance } from "@/components/ticker-support-resistance"
 import { TickerCatalystsRisks } from "@/components/ticker-catalysts-risks"
 import { TickerNews } from "@/components/ticker-news"
-import { TradierOptionsFlow } from "@/components/tradier-options-flow"
-import { AdvancedOptionsFlow } from "@/components/advanced-options-flow"
+import { EquityBlockTradesWidget } from "@/components/equity-block-trades-widget"
+import { OptionsBlockTradesWidget } from "@/components/options-block-trades-widget"
+import { VolatilityWidget } from "@/components/volatility-widget"
+import { ShortInterestWidget } from "@/components/short-interest-widget"
+import { EarningsHistoryWidget } from "@/components/earnings-history-widget"
+import { FundamentalsWidget } from "@/components/fundamentals-widget"
+import { AnalystRatingsWidget } from "@/components/analyst-ratings-widget"
+import { InsiderActivityWidget } from "@/components/insider-activity-widget"
+import { EtfExposureWidget } from "@/components/etf-exposure-widget"
 import { AnalysisLayout, type Widget } from "@/components/analysis-layout"
 
 export const dynamic = "force-dynamic"
@@ -22,17 +26,8 @@ export default async function TickerPage({ params }: { params: Promise<{ symbol:
   const { symbol } = await params
   const sym = symbol.toUpperCase()
 
-  // Each widget is its own pill box, freely draggable + resizable on a 12-col grid.
-  // Defaults below are the initial positions; users can rearrange and the layout
-  // is persisted to localStorage.
-  // Layout matching user's preferred arrangement from screenshot
-  // Default layout matches screenshot:
-  // Row 1 (y=0,  h=11): Chart (cols 0-5) | Support+Resistance (cols 6-8) | Analyst Ratings (cols 9-11)
-  //                      Chart continues  | Technicals         (cols 6-8) | Fundamentals     (cols 9-11)
-  // Row 2 (y=11, h=6):  Dark Pool        (cols 0-4)           | Key Metrics (cols 4-8) | News (cols 8-11, spans rows 2-3)
-  // Row 3 (y=17, h=7):  Trade Idea       (cols 0-4)           | Patterns    (cols 4-8) | News continued
-  // Row 4 (y=24, h=6):  Catalysts        (cols 0-11)
   const widgets: Widget[] = [
+    // Row 1: Chart + Support/Resistance + Technicals
     {
       id: "chart",
       title: "Chart",
@@ -43,73 +38,105 @@ export default async function TickerPage({ params }: { params: Promise<{ symbol:
       id: "support-resistance",
       title: "Key Support & Resistance",
       content: <TickerSupportResistance symbol={sym} />,
-      defaultLayout: { x: 6, y: 0, w: 3, h: 5, minW: 2, minH: 4 },
-    },
-    {
-      id: "analyst-ratings",
-      title: "Analyst Ratings",
-      content: <TickerAnalystRatings symbol={sym} />,
-      defaultLayout: { x: 9, y: 0, w: 3, h: 5, minW: 2, minH: 4 },
+      defaultLayout: { x: 6, y: 0, w: 3, h: 6, minW: 2, minH: 4 },
     },
     {
       id: "technicals",
       title: "Technicals",
       content: <TickerTechnicals symbol={sym} />,
-      defaultLayout: { x: 6, y: 5, w: 3, h: 5, minW: 2, minH: 4 },
-    },
-    {
-      id: "fundamentals",
-      title: "Fundamentals",
-      content: <TickerFundamentals symbol={sym} />,
-      defaultLayout: { x: 9, y: 5, w: 3, h: 5, minW: 2, minH: 4 },
-    },
-    {
-      id: "dark-pool",
-      title: "Dark Pool Activity",
-      content: <TickerDarkPool symbol={sym} />,
-      defaultLayout: { x: 0, y: 12, w: 3, h: 6, minW: 2, minH: 4 },
-    },
-    {
-      id: "key-metrics",
-      title: "Key Metrics",
-      content: <KeyMetricsDisplay symbol={sym} />,
-      defaultLayout: { x: 3, y: 12, w: 3, h: 4, minW: 2, minH: 3 },
-    },
-    {
-      id: "patterns",
-      title: "Pattern Analysis",
-      content: <TickerPatterns symbol={sym} />,
-      defaultLayout: { x: 6, y: 12, w: 3, h: 6, minW: 2, minH: 4 },
+      defaultLayout: { x: 6, y: 6, w: 3, h: 6, minW: 2, minH: 4 },
     },
     {
       id: "news",
       title: "Top 10 Stories",
       content: <TickerNews symbol={sym} />,
-      defaultLayout: { x: 9, y: 0, w: 3, h: 18, minW: 2, minH: 5 },
+      defaultLayout: { x: 9, y: 0, w: 3, h: 12, minW: 2, minH: 5 },
     },
+
+    // Row 2: Volatility, Short Interest, Earnings, Fundamentals
+    {
+      id: "volatility",
+      title: "Volatility (IV vs HV)",
+      content: <VolatilityWidget symbol={sym} />,
+      defaultLayout: { x: 0, y: 12, w: 3, h: 10, minW: 2, minH: 8 },
+    },
+    {
+      id: "short-interest",
+      title: "Short Interest",
+      content: <ShortInterestWidget symbol={sym} />,
+      defaultLayout: { x: 3, y: 12, w: 3, h: 10, minW: 2, minH: 8 },
+    },
+    {
+      id: "earnings-history",
+      title: "Earnings History",
+      content: <EarningsHistoryWidget symbol={sym} />,
+      defaultLayout: { x: 6, y: 12, w: 3, h: 10, minW: 2, minH: 8 },
+    },
+    {
+      id: "fundamentals",
+      title: "Fundamentals",
+      content: <FundamentalsWidget symbol={sym} />,
+      defaultLayout: { x: 9, y: 12, w: 3, h: 10, minW: 2, minH: 8 },
+    },
+
+    // Row 3: Analyst, Insider, ETF, Key Metrics
+    {
+      id: "analyst-ratings",
+      title: "Analyst Ratings",
+      content: <AnalystRatingsWidget symbol={sym} />,
+      defaultLayout: { x: 0, y: 22, w: 3, h: 10, minW: 2, minH: 8 },
+    },
+    {
+      id: "insider-activity",
+      title: "Insider Activity",
+      content: <InsiderActivityWidget symbol={sym} />,
+      defaultLayout: { x: 3, y: 22, w: 3, h: 10, minW: 2, minH: 8 },
+    },
+    {
+      id: "etf-exposure",
+      title: "ETF Exposure",
+      content: <EtfExposureWidget symbol={sym} />,
+      defaultLayout: { x: 6, y: 22, w: 3, h: 10, minW: 2, minH: 8 },
+    },
+    {
+      id: "key-metrics",
+      title: "Key Metrics",
+      content: <KeyMetricsDisplay symbol={sym} />,
+      defaultLayout: { x: 9, y: 22, w: 3, h: 5, minW: 2, minH: 3 },
+    },
+
+    // Row 4: Dark Pool + Options Flow (consolidated)
+    {
+      id: "equity-blocks",
+      title: "Dark Pool & Block Trades",
+      content: <EquityBlockTradesWidget symbol={sym} />,
+      defaultLayout: { x: 0, y: 32, w: 6, h: 12, minW: 4, minH: 8 },
+    },
+    {
+      id: "options-blocks",
+      title: "Options Flow & Block Trades",
+      content: <OptionsBlockTradesWidget symbol={sym} />,
+      defaultLayout: { x: 6, y: 32, w: 6, h: 12, minW: 4, minH: 8 },
+    },
+
+    // Row 5: AI Trade Idea, Patterns, Catalysts
     {
       id: "trade-idea",
       title: "AI Trade Idea",
       content: <TradeIdeaPanel symbol={sym} />,
-      defaultLayout: { x: 0, y: 18, w: 3, h: 6, minW: 2, minH: 5 },
+      defaultLayout: { x: 0, y: 44, w: 4, h: 8, minW: 2, minH: 5 },
+    },
+    {
+      id: "patterns",
+      title: "Pattern Analysis",
+      content: <TickerPatterns symbol={sym} />,
+      defaultLayout: { x: 4, y: 44, w: 4, h: 8, minW: 2, minH: 4 },
     },
     {
       id: "catalysts",
       title: "Catalysts & Risks",
       content: <TickerCatalystsRisks symbol={sym} />,
-      defaultLayout: { x: 3, y: 18, w: 3, h: 8, minW: 2, minH: 4 },
-    },
-    {
-      id: "tradier-flow",
-      title: "Tradier Options Flow",
-      content: <TradierOptionsFlow symbol={sym} />,
-      defaultLayout: { x: 6, y: 18, w: 3, h: 8, minW: 2, minH: 5 },
-    },
-    {
-      id: "advanced-flow",
-      title: "Multi-Source Flow (UW · Tradier · FA · FINRA)",
-      content: <AdvancedOptionsFlow symbol={sym} />,
-      defaultLayout: { x: 0, y: 26, w: 6, h: 10, minW: 4, minH: 8 },
+      defaultLayout: { x: 8, y: 44, w: 4, h: 8, minW: 2, minH: 4 },
     },
   ]
 
@@ -123,12 +150,11 @@ export default async function TickerPage({ params }: { params: Promise<{ symbol:
         Back
       </Link>
 
-      {/* Compact header: ticker info + scrolling news */}
       <TickerHeader symbol={sym} />
 
-      {/* Free-form draggable + resizable widget grid */}
+      {/* Webull-style tabbed widget grid — v14 forces new layout with all UW widgets */}
       <div className="mt-2">
-        <AnalysisLayout widgets={widgets} storageKey={`analysis:grid:v12:${sym}`} />
+        <AnalysisLayout widgets={widgets} storageKey={`analysis:grid:v14:${sym}`} />
       </div>
     </main>
   )
