@@ -80,8 +80,8 @@ const TEMPLATE_PRESETS: Record<string, { name: string; icon: typeof LineChart; w
   "options": {
     name: "Options Trading",
     icon: TrendingUp,
-    description: "Options flow, volatility, and dark pool activity",
-    widgets: ["chart", "options-blocks", "volatility", "contract-drill-down", "equity-blocks", "short-interest"],
+    description: "Options flow, GEX, volatility, and dark pool activity",
+    widgets: ["chart", "options-blocks", "volatility", "gex", "contract-drill-down", "equity-blocks"],
   },
   "research": {
     name: "Market Research",
@@ -92,8 +92,8 @@ const TEMPLATE_PRESETS: Record<string, { name: string; icon: typeof LineChart; w
   "daytrading": {
     name: "Day Trading",
     icon: Zap,
-    description: "Real-time flow, technicals, and support/resistance levels",
-    widgets: ["chart", "technicals", "support-resistance", "equity-blocks", "options-blocks", "volatility"],
+    description: "Real-time flow, GEX levels, technicals, and support/resistance",
+    widgets: ["chart", "technicals", "support-resistance", "gex", "equity-blocks", "options-blocks"],
   },
 }
 
