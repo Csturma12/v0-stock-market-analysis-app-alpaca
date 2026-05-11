@@ -4,7 +4,7 @@ import { useState } from "react"
 import useSWR from "swr"
 import { WidgetFrame } from "./widget-frame"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { formatCompact } from "@/lib/format"
+import { fmtCompact } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { ArrowUpRight, ArrowDownRight } from "lucide-react"
 
@@ -53,11 +53,11 @@ export function CryptoWhalesWidget() {
       <div className="grid grid-cols-3 gap-2 mb-3 text-xs">
         <div className="bg-muted/50 rounded p-2">
           <div className="text-muted-foreground">Buy Premium</div>
-          <div className="font-medium text-[color:var(--color-bull)]">{formatCompact(totalBuy)}</div>
+          <div className="font-medium text-[color:var(--color-bull)]">{fmtCompact(totalBuy)}</div>
         </div>
         <div className="bg-muted/50 rounded p-2">
           <div className="text-muted-foreground">Sell Premium</div>
-          <div className="font-medium text-[color:var(--color-bear)]">{formatCompact(totalSell)}</div>
+          <div className="font-medium text-[color:var(--color-bear)]">{fmtCompact(totalSell)}</div>
         </div>
         <div className="bg-muted/50 rounded p-2">
           <div className="text-muted-foreground">Trades</div>
@@ -89,8 +89,8 @@ export function CryptoWhalesWidget() {
                     {w.side}
                   </span>
                 </td>
-                <td className="py-1 text-right tabular-nums">{formatCompact(w.premium)}</td>
-                <td className="py-1 text-right tabular-nums">{formatCompact(w.size)}</td>
+                <td className="py-1 text-right tabular-nums">{fmtCompact(w.premium)}</td>
+                <td className="py-1 text-right tabular-nums">{fmtCompact(w.size)}</td>
                 <td className="py-1 text-right text-muted-foreground">{w.time}</td>
               </tr>
             ))}
