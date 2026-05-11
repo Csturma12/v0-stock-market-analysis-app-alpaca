@@ -47,26 +47,26 @@ export async function GET(req: Request) {
     tickers = ctx.sub.tickers
   }
 
-  // Try Tradier first (real-time), fall back to Polygon (15-min delay)
+  // Try Polygon first (paid tier, higher limits), fall back to Tradier
   let data: Array<{ ticker: string; price: number | null; change: number | null; changePct: number | null; volume: number | null }> = []
   
-  const hasTradier = !!process.env.TRADIER_API_KEY
   const hasPolygon = !!process.env.POLYGON_API_KEY
+  const hasTradier = !!process.env.TRADIER_API_KEY
 
-  if (hasTradier) {
-    try {
-      data = await getQuotesViaTradier(tickers)
-    } catch (err) {
-      console.error("[subindustry] Tradier error:", err)
-    }
-  }
-
-  // If Tradier returned nothing or isn't configured, try Polygon
-  if (data.length === 0 && hasPolygon) {
+  if (hasPolygon) {
     try {
       data = await getQuotesViaPolygon(tickers)
     } catch (err) {
       console.error("[subindustry] Polygon error:", err)
+    }
+  }
+
+  // If Polygon returned nothing or isn't configured, try Tradier
+  if (data.length === 0 && hasTradier) {
+    try {
+      data = await getQuotesViaTradier(tickers)
+    } catch (err) {
+      console.error("[subindustry] Tradier error:", err)
     }
   }
 
