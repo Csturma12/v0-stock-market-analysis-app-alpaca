@@ -5,7 +5,7 @@ import useSWR from "swr"
 import Link from "next/link"
 import { WidgetFrame } from "./widget-frame"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { formatCompact } from "@/lib/format"
+import { fmtCompact } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { TrendingUp, TrendingDown } from "lucide-react"
 
@@ -55,11 +55,11 @@ export function MarketInsiderWidget() {
       <div className="grid grid-cols-3 gap-2 mb-3 text-xs">
         <div className="bg-muted/50 rounded p-2">
           <div className="text-muted-foreground">Buy Value</div>
-          <div className="font-medium text-[color:var(--color-bull)]">{formatCompact(totalBuy)}</div>
+          <div className="font-medium text-[color:var(--color-bull)]">{fmtCompact(totalBuy)}</div>
         </div>
         <div className="bg-muted/50 rounded p-2">
           <div className="text-muted-foreground">Sell Value</div>
-          <div className="font-medium text-[color:var(--color-bear)]">{formatCompact(totalSell)}</div>
+          <div className="font-medium text-[color:var(--color-bear)]">{fmtCompact(totalSell)}</div>
         </div>
         <div className="bg-muted/50 rounded p-2">
           <div className="text-muted-foreground">Filings</div>
@@ -98,7 +98,7 @@ export function MarketInsiderWidget() {
                     {t.tradeType}
                   </span>
                 </td>
-                <td className="py-1 text-right tabular-nums">{formatCompact(t.value)}</td>
+                <td className="py-1 text-right tabular-nums">{fmtCompact(t.value)}</td>
                 <td className="py-1 text-right text-muted-foreground">{t.filingDate}</td>
               </tr>
             ))}
