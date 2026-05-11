@@ -13,7 +13,7 @@ import {
   ResponsiveContainer,
   Cell,
 } from "recharts"
-import { formatCompact } from "@/lib/format"
+import { fmtCompact } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 type FlowRow = {
@@ -78,16 +78,16 @@ export function GroupFlowWidget() {
       <div className="grid grid-cols-3 gap-2 mb-3 text-xs">
         <div className="bg-muted/50 rounded p-2">
           <div className="text-muted-foreground">Call Premium</div>
-          <div className="font-medium text-[color:var(--color-bull)]">{formatCompact(totalCall)}</div>
+          <div className="font-medium text-[color:var(--color-bull)]">{fmtCompact(totalCall)}</div>
         </div>
         <div className="bg-muted/50 rounded p-2">
           <div className="text-muted-foreground">Put Premium</div>
-          <div className="font-medium text-[color:var(--color-bear)]">{formatCompact(totalPut)}</div>
+          <div className="font-medium text-[color:var(--color-bear)]">{fmtCompact(totalPut)}</div>
         </div>
         <div className="bg-muted/50 rounded p-2">
           <div className="text-muted-foreground">Net</div>
           <div className={cn("font-medium", netTotal >= 0 ? "text-[color:var(--color-bull)]" : "text-[color:var(--color-bear)]")}>
-            {netTotal >= 0 ? "+" : ""}{formatCompact(netTotal)}
+            {netTotal >= 0 ? "+" : ""}{fmtCompact(netTotal)}
           </div>
         </div>
       </div>
@@ -96,11 +96,11 @@ export function GroupFlowWidget() {
         <div className="h-[240px]">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData} layout="vertical" margin={{ left: 60, right: 10 }}>
-              <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={(v) => formatCompact(v)} />
+              <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={(v) => fmtCompact(v)} />
               <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={55} />
               <Tooltip
                 contentStyle={{ fontSize: 11 }}
-                formatter={(v: number) => formatCompact(v)}
+                formatter={(v: number) => fmtCompact(v)}
               />
               <Bar dataKey="net" name="Net Premium">
                 {chartData.map((entry, idx) => (
@@ -127,10 +127,10 @@ export function GroupFlowWidget() {
                 return (
                   <tr key={i} className="border-b border-border/50">
                     <td className="py-1 font-medium">{r.sector ?? r.etf ?? "—"}</td>
-                    <td className="py-1 text-right text-[color:var(--color-bull)]">{formatCompact(r.callPremium)}</td>
-                    <td className="py-1 text-right text-[color:var(--color-bear)]">{formatCompact(r.putPremium)}</td>
+                    <td className="py-1 text-right text-[color:var(--color-bull)]">{fmtCompact(r.callPremium)}</td>
+                    <td className="py-1 text-right text-[color:var(--color-bear)]">{fmtCompact(r.putPremium)}</td>
                     <td className={cn("py-1 text-right font-medium", net >= 0 ? "text-[color:var(--color-bull)]" : "text-[color:var(--color-bear)]")}>
-                      {net >= 0 ? "+" : ""}{formatCompact(net)}
+                      {net >= 0 ? "+" : ""}{fmtCompact(net)}
                     </td>
                   </tr>
                 )
