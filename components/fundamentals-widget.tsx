@@ -37,13 +37,13 @@ type ChartView = "income" | "balance" | "cash" | "eps"
 export function FundamentalsWidget({ symbol }: Props) {
   const [tab, setTab] = useState<"chart" | "table">("chart")
   const [chartView, setChartView] = useState<ChartView>("income")
-  const { data, isLoading, error } = useSWR<Financial[]>(
+  const { data, isLoading, error } = useSWR<{ data: Financial[] }>(
     `/api/uw/ticker/${symbol}/financials`,
     fetcher,
     { refreshInterval: 600_000 }
   )
 
-  const rows = data ?? []
+  const rows = data?.data ?? []
   const latest = rows[0]
 
   const chartData = [...rows].slice(0, 8).reverse()
