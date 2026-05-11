@@ -6,6 +6,11 @@ import { QuickTradeIdea } from "@/components/quick-trade-idea"
 import { QuickTrade } from "@/components/quick-trade"
 import { EquityBlockTradesWidget } from "@/components/equity-block-trades-widget"
 import { OptionsBlockTradesWidget } from "@/components/options-block-trades-widget"
+import { GroupFlowWidget } from "@/components/group-flow-widget"
+import { CorrelationsWidget } from "@/components/correlations-widget"
+import { EconomicCalendarWidget } from "@/components/economic-calendar-widget"
+import { CryptoWhalesWidget } from "@/components/crypto-whales-widget"
+import { MarketInsiderWidget } from "@/components/market-insider-widget"
 import { AnalysisLayout, type Widget } from "@/components/analysis-layout"
 
 export const dynamic = "force-dynamic"
@@ -49,10 +54,40 @@ export default function HomePage() {
       defaultLayout: { x: 6, y: 19, w: 3, h: 6, minW: 2, minH: 5 },
     },
     {
+      id: "group-flow",
+      title: "Sector/ETF Flow",
+      content: <GroupFlowWidget />,
+      defaultLayout: { x: 6, y: 19, w: 6, h: 9, minW: 4, minH: 6 },
+    },
+    {
+      id: "correlations",
+      title: "Asset Correlations",
+      content: <CorrelationsWidget />,
+      defaultLayout: { x: 0, y: 28, w: 6, h: 10, minW: 4, minH: 8 },
+    },
+    {
+      id: "economic-calendar",
+      title: "Economic Calendar",
+      content: <EconomicCalendarWidget />,
+      defaultLayout: { x: 6, y: 28, w: 6, h: 10, minW: 4, minH: 6 },
+    },
+    {
+      id: "crypto-whales",
+      title: "Crypto Whales",
+      content: <CryptoWhalesWidget />,
+      defaultLayout: { x: 0, y: 38, w: 6, h: 10, minW: 4, minH: 6 },
+    },
+    {
+      id: "market-insider",
+      title: "Market Insider Trades",
+      content: <MarketInsiderWidget />,
+      defaultLayout: { x: 6, y: 38, w: 6, h: 10, minW: 4, minH: 6 },
+    },
+    {
       id: "market-news",
       title: "Market News",
       content: <HomeMarketNews />,
-      defaultLayout: { x: 0, y: 28, w: 12, h: 10, minW: 4, minH: 5 },
+      defaultLayout: { x: 0, y: 48, w: 12, h: 10, minW: 4, minH: 5 },
     },
   ]
 
@@ -70,7 +105,7 @@ export default function HomePage() {
 
       {/* Adjustable widget grid */}
       <div className="mx-auto max-w-[1600px] px-4 py-3">
-        <AnalysisLayout widgets={widgets} storageKey="home:grid:v6" />
+        <AnalysisLayout widgets={widgets} storageKey="home:grid:v7" />
       </div>
     </main>
   )
