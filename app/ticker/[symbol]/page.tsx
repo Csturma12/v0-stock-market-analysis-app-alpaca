@@ -19,6 +19,7 @@ import { AnalystRatingsWidget } from "@/components/analyst-ratings-widget"
 import { InsiderActivityWidget } from "@/components/insider-activity-widget"
 import { EtfExposureWidget } from "@/components/etf-exposure-widget"
 import { OptionContractDrillDownWidget } from "@/components/option-contract-drill-down-widget"
+import { GexWidget } from "@/components/gex-widget"
 import { AnalysisLayout, type Widget } from "@/components/analysis-layout"
 
 export const dynamic = "force-dynamic"
@@ -140,12 +141,18 @@ export default async function TickerPage({ params }: { params: Promise<{ symbol:
       defaultLayout: { x: 8, y: 44, w: 4, h: 8, minW: 2, minH: 4 },
     },
 
-    // Row 6: Option Contract Drill-Down
+    // Row 6: Option Contract Drill-Down + GEX
     {
       id: "contract-drill-down",
       title: "Option Contract Drill-Down",
       content: <OptionContractDrillDownWidget />,
       defaultLayout: { x: 0, y: 52, w: 6, h: 10, minW: 4, minH: 8 },
+    },
+    {
+      id: "gex",
+      title: "Greek Exposure (GEX/DEX)",
+      content: <GexWidget symbol={sym} />,
+      defaultLayout: { x: 6, y: 52, w: 3, h: 10, minW: 2, minH: 8 },
     },
   ]
 
@@ -163,7 +170,7 @@ export default async function TickerPage({ params }: { params: Promise<{ symbol:
 
       {/* Webull-style tabbed widget grid — v14 forces new layout with all UW widgets */}
       <div className="mt-2">
-        <AnalysisLayout widgets={widgets} storageKey={`analysis:grid:v15:${sym}`} />
+        <AnalysisLayout widgets={widgets} storageKey={`analysis:grid:v16:${sym}`} />
       </div>
     </main>
   )
