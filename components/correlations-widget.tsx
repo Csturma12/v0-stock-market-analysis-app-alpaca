@@ -4,10 +4,11 @@ import useSWR from "swr"
 import { WidgetFrame } from "./widget-frame"
 import { cn } from "@/lib/utils"
 
-type CorrRow = {
-  ticker1: string
-  ticker2: string
-  correlation: number
+type CorrData = {
+  data: {
+    tickers: string[]
+    matrix: Record<string, Record<string, number>>
+  }
 }
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
@@ -15,29 +16,14 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json())
 const DEFAULT_TICKERS = ["SPY", "QQQ", "AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "META", "TSLA", "AMD"]
 
 export function CorrelationsWidget() {
-  const { data, isLoading, error } = useSWR<{ data: CorrRow[] }>(
+  const { data, isLoading, error } = useSWR<CorrData>(
     `/api/uw/correlations?tickers=${DEFAULT_TICKERS.join(",")}`,
     fetcher,
     { refreshInterval: 300_000 }
   )
 
-  const rows = data?.data ?? []
-
-  // Build correlation matrix
-  const tickers = DEFAULT_TICKERS
-  const matrix: Record<string, Record<string, number>> = {}
-  for (const t of tickers) {
-    matrix[t] = {}
-    for (const t2 of tickers) {
-      matrix[t][t2] = t === t2 ? 1 : 0
-    }
-  }
-  for (const r of rows) {
-    if (matrix[r.ticker1] && matrix[r.ticker1][r.ticker2] !== undefined) {
-      matrix[r.ticker1][r.ticker2] = r.correlation
-      matrix[r.ticker2][r.ticker1] = r.correlation
-    }
-  }
+  const tickers = data?.data?.tickers ?? DEFAULT_TICKERS
+  const matrix = data?.data?.matrix ?? {}
 
   // Color scale: -1 = red, 0 = gray, +1 = green
   function corrColor(v: number): string {
@@ -71,7 +57,7 @@ export function CorrelationsWidget() {
               <tr key={t1}>
                 <td className="p-1 font-medium text-muted-foreground">{t1}</td>
                 {tickers.map((t2) => {
-                  const v = matrix[t1][t2]
+                  const v = matrix[t1]?.[t2] ?? (t1 === t2 ? 1 : 0)
                   return (
                     <td key={t2} className={cn("p-1 text-center tabular-nums", corrColor(v))}>
                       {v.toFixed(2)}
