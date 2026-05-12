@@ -14,7 +14,9 @@ export function TradingAccount() {
       <div className="rounded-lg border border-[color:var(--color-bear)]/40 bg-[color:var(--color-bear)]/10 p-5">
         <h3 className="mb-1 text-base font-semibold">Alpaca not connected</h3>
         <p className="text-sm leading-relaxed text-muted-foreground">
-          Add ALPACA_API_KEY_ID and ALPACA_API_SECRET_KEY as env vars (use Paper keys from app.alpaca.markets).
+          Add ALPACA_API_KEY and ALPACA_SECRET_API_KEY as env vars (use Paper keys from app.alpaca.markets).
+          <br />
+          <span className="text-xs text-muted-foreground/70">Error: {acc?.error}</span>
         </p>
       </div>
     )
