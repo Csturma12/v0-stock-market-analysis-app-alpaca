@@ -29,6 +29,12 @@ const BASE_URL = TRADE_URL
 const APP_KEY = process.env.WEBULL_APP_KEY ?? ""
 const APP_SECRET = process.env.WEBULL_APP_SECRET ?? ""
 
+// Manual token support - set these env vars if you have a token from Codex/Postman
+const MANUAL_TOKEN = process.env.WEBULL_ACCESS_TOKEN ?? ""
+const MANUAL_TOKEN_EXPIRES = process.env.WEBULL_TOKEN_EXPIRES 
+  ? parseInt(process.env.WEBULL_TOKEN_EXPIRES) 
+  : 0
+
 // Cached access token (with expiry tracking)
 let cachedToken: { 
   token: string
@@ -36,6 +42,16 @@ let cachedToken: {
   expires_at: number
   status?: string
 } | null = null
+
+// Initialize with manual token if provided
+if (MANUAL_TOKEN && MANUAL_TOKEN_EXPIRES > Date.now()) {
+  cachedToken = {
+    token: MANUAL_TOKEN,
+    expires_at: MANUAL_TOKEN_EXPIRES,
+    status: "MANUAL",
+  }
+  console.log("[v0] Webull: Using manual token from env vars")
+}
 
 // Export token status for UI
 export function getTokenStatus(): { status: string; expiresAt: number } | null {
@@ -180,18 +196,24 @@ function buildHeaders(
  * POST /openapi/auth/token/create
  */
 async function createAccessToken(): Promise<string> {
+  // Use manual token if provided and still valid
+  if (MANUAL_TOKEN && MANUAL_TOKEN_EXPIRES > Date.now() + 300000) {
+    console.log("[v0] Webull: Using manual token from WEBULL_ACCESS_TOKEN")
+    cachedToken = {
+      token: MANUAL_TOKEN,
+      expires_at: MANUAL_TOKEN_EXPIRES,
+      status: "MANUAL",
+    }
+    return MANUAL_TOKEN
+  }
+
   if (!APP_KEY || !APP_SECRET) {
     throw new Error("WEBULL_APP_KEY and WEBULL_APP_SECRET must be set")
   }
 
   // Return cached token if still valid (with 5 min buffer)
   if (cachedToken && cachedToken.expires_at > Date.now() + 300000) {
-    // Verify token is still valid with check endpoint
-    const isValid = await checkTokenValid(cachedToken.token)
-    if (isValid) {
-      return cachedToken.token
-    }
-    console.log("[v0] Webull: Cached token invalid, refreshing...")
+    return cachedToken.token
   }
 
   // Try to refresh if we have a refresh token
