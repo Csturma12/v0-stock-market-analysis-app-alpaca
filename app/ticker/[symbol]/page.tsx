@@ -29,130 +29,130 @@ export default async function TickerPage({ params }: { params: Promise<{ symbol:
   const sym = symbol.toUpperCase()
 
   const widgets: Widget[] = [
-    // Row 1: Chart + Support/Resistance + Technicals
+    // PRIMARY: Chart - always visible, largest widget
     {
       id: "chart",
-      title: "Chart",
+      title: "Price Chart",
       content: <TickerChart symbol={sym} className="h-full" />,
-      defaultLayout: { x: 0, y: 0, w: 6, h: 12, minW: 4, minH: 8 },
+      defaultLayout: { x: 0, y: 0, w: 8, h: 14, minW: 4, minH: 8 },
+    },
+
+    // TECHNICALS GROUP: Support/Resistance + Technicals (Day Trading, AI)
+    {
+      id: "technicals",
+      title: "Technical Indicators",
+      content: <TickerTechnicals symbol={sym} />,
+      defaultLayout: { x: 8, y: 0, w: 4, h: 7, minW: 2, minH: 4 },
     },
     {
       id: "support-resistance",
-      title: "Key Support & Resistance",
+      title: "Support & Resistance",
       content: <TickerSupportResistance symbol={sym} />,
-      defaultLayout: { x: 6, y: 0, w: 3, h: 6, minW: 2, minH: 4 },
-    },
-    {
-      id: "technicals",
-      title: "Technicals",
-      content: <TickerTechnicals symbol={sym} />,
-      defaultLayout: { x: 6, y: 6, w: 3, h: 6, minW: 2, minH: 4 },
-    },
-    {
-      id: "news",
-      title: "Top 10 Stories",
-      content: <TickerNews symbol={sym} />,
-      defaultLayout: { x: 9, y: 0, w: 3, h: 12, minW: 2, minH: 5 },
+      defaultLayout: { x: 8, y: 7, w: 4, h: 7, minW: 2, minH: 4 },
     },
 
-    // Row 2: Volatility, Short Interest, Earnings, Fundamentals
+    // OPTIONS GROUP: GEX, Volatility, Options Flow, Dark Pool
+    {
+      id: "gex",
+      title: "GEX / DEX Levels",
+      content: <GexWidget symbol={sym} />,
+      defaultLayout: { x: 0, y: 14, w: 4, h: 10, minW: 2, minH: 8 },
+    },
     {
       id: "volatility",
-      title: "Volatility (IV vs HV)",
+      title: "Volatility (IV/HV)",
       content: <VolatilityWidget symbol={sym} />,
-      defaultLayout: { x: 0, y: 12, w: 3, h: 10, minW: 2, minH: 8 },
+      defaultLayout: { x: 4, y: 14, w: 4, h: 10, minW: 2, minH: 8 },
     },
     {
-      id: "short-interest",
-      title: "Short Interest",
-      content: <ShortInterestWidget symbol={sym} />,
-      defaultLayout: { x: 3, y: 12, w: 3, h: 10, minW: 2, minH: 8 },
+      id: "options-blocks",
+      title: "Options Flow",
+      content: <OptionsBlockTradesWidget symbol={sym} />,
+      defaultLayout: { x: 8, y: 14, w: 4, h: 10, minW: 3, minH: 8 },
     },
     {
-      id: "earnings-history",
-      title: "Earnings History",
-      content: <EarningsHistoryWidget symbol={sym} />,
-      defaultLayout: { x: 6, y: 12, w: 3, h: 10, minW: 2, minH: 8 },
+      id: "equity-blocks",
+      title: "Dark Pool Flow",
+      content: <EquityBlockTradesWidget symbol={sym} />,
+      defaultLayout: { x: 0, y: 24, w: 6, h: 10, minW: 4, minH: 8 },
+    },
+    {
+      id: "contract-drill-down",
+      title: "Options Drill-Down",
+      content: <OptionContractDrillDownWidget />,
+      defaultLayout: { x: 6, y: 24, w: 6, h: 10, minW: 4, minH: 8 },
+    },
+
+    // FUNDAMENTALS GROUP: Key Metrics, Fundamentals, Earnings
+    {
+      id: "key-metrics",
+      title: "Key Metrics",
+      content: <KeyMetricsDisplay symbol={sym} />,
+      defaultLayout: { x: 0, y: 34, w: 3, h: 8, minW: 2, minH: 5 },
     },
     {
       id: "fundamentals",
       title: "Fundamentals",
       content: <FundamentalsWidget symbol={sym} />,
-      defaultLayout: { x: 9, y: 12, w: 3, h: 10, minW: 2, minH: 8 },
+      defaultLayout: { x: 3, y: 34, w: 3, h: 8, minW: 2, minH: 6 },
+    },
+    {
+      id: "earnings-history",
+      title: "Earnings History",
+      content: <EarningsHistoryWidget symbol={sym} />,
+      defaultLayout: { x: 6, y: 34, w: 3, h: 8, minW: 2, minH: 6 },
+    },
+    {
+      id: "short-interest",
+      title: "Short Interest",
+      content: <ShortInterestWidget symbol={sym} />,
+      defaultLayout: { x: 9, y: 34, w: 3, h: 8, minW: 2, minH: 6 },
     },
 
-    // Row 3: Analyst, Insider, ETF, Key Metrics
+    // RESEARCH GROUP: Analyst, Insider, ETF, News
     {
       id: "analyst-ratings",
       title: "Analyst Ratings",
       content: <AnalystRatingsWidget symbol={sym} />,
-      defaultLayout: { x: 0, y: 22, w: 3, h: 10, minW: 2, minH: 8 },
+      defaultLayout: { x: 0, y: 42, w: 4, h: 10, minW: 2, minH: 8 },
     },
     {
       id: "insider-activity",
       title: "Insider Activity",
       content: <InsiderActivityWidget symbol={sym} />,
-      defaultLayout: { x: 3, y: 22, w: 3, h: 10, minW: 2, minH: 8 },
+      defaultLayout: { x: 4, y: 42, w: 4, h: 10, minW: 2, minH: 8 },
     },
     {
       id: "etf-exposure",
       title: "ETF Exposure",
       content: <EtfExposureWidget symbol={sym} />,
-      defaultLayout: { x: 6, y: 22, w: 3, h: 10, minW: 2, minH: 8 },
+      defaultLayout: { x: 8, y: 42, w: 4, h: 10, minW: 2, minH: 8 },
     },
     {
-      id: "key-metrics",
-      title: "Key Metrics",
-      content: <KeyMetricsDisplay symbol={sym} />,
-      defaultLayout: { x: 9, y: 22, w: 3, h: 5, minW: 2, minH: 3 },
+      id: "news",
+      title: "Latest News",
+      content: <TickerNews symbol={sym} />,
+      defaultLayout: { x: 0, y: 52, w: 12, h: 8, minW: 4, minH: 5 },
     },
 
-    // Row 4: Dark Pool + Options Flow (consolidated)
-    {
-      id: "equity-blocks",
-      title: "Dark Pool & Block Trades",
-      content: <EquityBlockTradesWidget symbol={sym} />,
-      defaultLayout: { x: 0, y: 32, w: 6, h: 12, minW: 4, minH: 8 },
-    },
-    {
-      id: "options-blocks",
-      title: "Options Flow & Block Trades",
-      content: <OptionsBlockTradesWidget symbol={sym} />,
-      defaultLayout: { x: 6, y: 32, w: 6, h: 12, minW: 4, minH: 8 },
-    },
-
-    // Row 5: AI Trade Idea, Patterns, Catalysts
+    // AI GROUP: Trade Ideas, Patterns, Catalysts
     {
       id: "trade-idea",
       title: "AI Trade Idea",
       content: <TradeIdeaPanel symbol={sym} />,
-      defaultLayout: { x: 0, y: 44, w: 4, h: 8, minW: 2, minH: 5 },
+      defaultLayout: { x: 0, y: 60, w: 5, h: 10, minW: 3, minH: 6 },
     },
     {
       id: "patterns",
-      title: "Pattern Analysis",
+      title: "Chart Patterns",
       content: <TickerPatterns symbol={sym} />,
-      defaultLayout: { x: 4, y: 44, w: 4, h: 8, minW: 2, minH: 4 },
+      defaultLayout: { x: 5, y: 60, w: 4, h: 10, minW: 2, minH: 5 },
     },
     {
       id: "catalysts",
       title: "Catalysts & Risks",
       content: <TickerCatalystsRisks symbol={sym} />,
-      defaultLayout: { x: 8, y: 44, w: 4, h: 8, minW: 2, minH: 4 },
-    },
-
-    // Row 6: Option Contract Drill-Down + GEX
-    {
-      id: "contract-drill-down",
-      title: "Option Contract Drill-Down",
-      content: <OptionContractDrillDownWidget />,
-      defaultLayout: { x: 0, y: 52, w: 6, h: 10, minW: 4, minH: 8 },
-    },
-    {
-      id: "gex",
-      title: "Greek Exposure (GEX/DEX)",
-      content: <GexWidget symbol={sym} />,
-      defaultLayout: { x: 6, y: 52, w: 3, h: 10, minW: 2, minH: 8 },
+      defaultLayout: { x: 9, y: 60, w: 3, h: 10, minW: 2, minH: 5 },
     },
   ]
 
@@ -170,7 +170,7 @@ export default async function TickerPage({ params }: { params: Promise<{ symbol:
 
       {/* Webull-style tabbed widget grid — v14 forces new layout with all UW widgets */}
       <div className="mt-2">
-        <AnalysisLayout widgets={widgets} storageKey={`analysis:grid:v16:${sym}`} />
+        <AnalysisLayout widgets={widgets} storageKey={`analysis:grid:v17:${sym}`} />
       </div>
     </main>
   )

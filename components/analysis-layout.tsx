@@ -52,7 +52,14 @@ type SavedLayout = {
 }
 
 // Template presets - which widgets to show for each analysis type
-const TEMPLATE_PRESETS: Record<string, { name: string; icon: typeof LineChart; widgets: string[]; description: string }> = {
+// Each template is optimized for its specific trading/analysis workflow
+const TEMPLATE_PRESETS: Record<string, { 
+  name: string; 
+  icon: typeof LineChart; 
+  widgets: string[]; 
+  description: string;
+  layouts?: Record<string, { x: number; y: number; w: number; h: number }>;
+}> = {
   "all": {
     name: "All Widgets",
     icon: LayoutGrid,
@@ -62,38 +69,95 @@ const TEMPLATE_PRESETS: Record<string, { name: string; icon: typeof LineChart; w
   "analyst": {
     name: "Analyst Analysis",
     icon: LineChart,
-    description: "Focus on analyst ratings, price targets, and recommendations",
-    widgets: ["chart", "analyst-ratings", "news", "key-metrics", "earnings-history", "fundamentals"],
+    description: "Analyst ratings, price targets, and recommendations",
+    widgets: ["chart", "analyst-ratings", "key-metrics", "fundamentals", "earnings-history", "news", "insider-activity", "etf-exposure"],
+    layouts: {
+      "chart": { x: 0, y: 0, w: 8, h: 12 },
+      "analyst-ratings": { x: 8, y: 0, w: 4, h: 12 },
+      "key-metrics": { x: 0, y: 12, w: 3, h: 8 },
+      "fundamentals": { x: 3, y: 12, w: 3, h: 8 },
+      "earnings-history": { x: 6, y: 12, w: 3, h: 8 },
+      "news": { x: 9, y: 12, w: 3, h: 8 },
+      "insider-activity": { x: 0, y: 20, w: 6, h: 8 },
+      "etf-exposure": { x: 6, y: 20, w: 6, h: 8 },
+    },
   },
   "ai": {
     name: "AI Analysis",
     icon: Brain,
     description: "AI-powered trade ideas, patterns, and catalysts",
-    widgets: ["chart", "trade-idea", "patterns", "catalysts", "technicals", "news"],
+    widgets: ["chart", "trade-idea", "patterns", "catalysts", "technicals", "news", "support-resistance"],
+    layouts: {
+      "chart": { x: 0, y: 0, w: 7, h: 12 },
+      "trade-idea": { x: 7, y: 0, w: 5, h: 12 },
+      "patterns": { x: 0, y: 12, w: 4, h: 10 },
+      "catalysts": { x: 4, y: 12, w: 4, h: 10 },
+      "technicals": { x: 8, y: 12, w: 4, h: 10 },
+      "support-resistance": { x: 0, y: 22, w: 6, h: 8 },
+      "news": { x: 6, y: 22, w: 6, h: 8 },
+    },
   },
   "fundamentals": {
     name: "Fundamentals & Technicals",
     icon: Calculator,
-    description: "Deep dive into company financials and technical indicators",
-    widgets: ["chart", "fundamentals", "earnings-history", "technicals", "support-resistance", "key-metrics"],
+    description: "Company financials and technical indicators",
+    widgets: ["chart", "fundamentals", "key-metrics", "earnings-history", "technicals", "support-resistance", "short-interest", "analyst-ratings"],
+    layouts: {
+      "chart": { x: 0, y: 0, w: 8, h: 12 },
+      "technicals": { x: 8, y: 0, w: 4, h: 6 },
+      "support-resistance": { x: 8, y: 6, w: 4, h: 6 },
+      "fundamentals": { x: 0, y: 12, w: 4, h: 10 },
+      "key-metrics": { x: 4, y: 12, w: 4, h: 10 },
+      "earnings-history": { x: 8, y: 12, w: 4, h: 10 },
+      "short-interest": { x: 0, y: 22, w: 6, h: 8 },
+      "analyst-ratings": { x: 6, y: 22, w: 6, h: 8 },
+    },
   },
   "options": {
     name: "Options Trading",
     icon: TrendingUp,
-    description: "Options flow, GEX, volatility, and dark pool activity",
-    widgets: ["chart", "options-blocks", "volatility", "gex", "contract-drill-down", "equity-blocks"],
+    description: "Options flow, GEX, volatility, and dark pool",
+    widgets: ["chart", "options-blocks", "gex", "volatility", "contract-drill-down", "equity-blocks", "short-interest"],
+    layouts: {
+      "chart": { x: 0, y: 0, w: 6, h: 12 },
+      "gex": { x: 6, y: 0, w: 3, h: 12 },
+      "volatility": { x: 9, y: 0, w: 3, h: 12 },
+      "options-blocks": { x: 0, y: 12, w: 6, h: 12 },
+      "contract-drill-down": { x: 6, y: 12, w: 6, h: 12 },
+      "equity-blocks": { x: 0, y: 24, w: 6, h: 10 },
+      "short-interest": { x: 6, y: 24, w: 6, h: 10 },
+    },
   },
   "research": {
     name: "Market Research",
     icon: Search,
-    description: "Comprehensive research including ETF exposure and insider activity",
-    widgets: ["chart", "news", "etf-exposure", "insider-activity", "analyst-ratings", "catalysts"],
+    description: "ETF exposure, insider activity, and research",
+    widgets: ["chart", "news", "etf-exposure", "insider-activity", "analyst-ratings", "fundamentals", "catalysts", "earnings-history"],
+    layouts: {
+      "chart": { x: 0, y: 0, w: 6, h: 10 },
+      "news": { x: 6, y: 0, w: 6, h: 10 },
+      "etf-exposure": { x: 0, y: 10, w: 4, h: 10 },
+      "insider-activity": { x: 4, y: 10, w: 4, h: 10 },
+      "analyst-ratings": { x: 8, y: 10, w: 4, h: 10 },
+      "fundamentals": { x: 0, y: 20, w: 4, h: 8 },
+      "catalysts": { x: 4, y: 20, w: 4, h: 8 },
+      "earnings-history": { x: 8, y: 20, w: 4, h: 8 },
+    },
   },
   "daytrading": {
     name: "Day Trading",
     icon: Zap,
-    description: "Real-time flow, GEX levels, technicals, and support/resistance",
-    widgets: ["chart", "technicals", "support-resistance", "gex", "equity-blocks", "options-blocks"],
+    description: "Real-time flow, GEX, technicals, S/R levels",
+    widgets: ["chart", "technicals", "support-resistance", "gex", "equity-blocks", "options-blocks", "volatility"],
+    layouts: {
+      "chart": { x: 0, y: 0, w: 8, h: 14 },
+      "technicals": { x: 8, y: 0, w: 4, h: 7 },
+      "support-resistance": { x: 8, y: 7, w: 4, h: 7 },
+      "gex": { x: 0, y: 14, w: 4, h: 10 },
+      "volatility": { x: 4, y: 14, w: 4, h: 10 },
+      "equity-blocks": { x: 8, y: 14, w: 4, h: 10 },
+      "options-blocks": { x: 0, y: 24, w: 12, h: 10 },
+    },
   },
 }
 
@@ -209,15 +273,40 @@ export function AnalysisLayout({
     setActiveTemplate(templateKey)
     
     if (templateKey === "all") {
-      // Show all widgets
+      // Show all widgets with default layout
       setHiddenWidgets(new Set())
       persistHiddenWidgets(new Set())
+      setLayout(defaults)
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(defaults))
+      } catch {
+        /* ignore */
+      }
     } else {
       // Hide widgets not in the template
       const toShow = new Set(template.widgets)
       const toHide = new Set(widgets.filter((w) => !toShow.has(w.id)).map((w) => w.id))
       setHiddenWidgets(toHide)
       persistHiddenWidgets(toHide)
+      
+      // Apply template-specific layouts if available
+      if (template.layouts) {
+        const newLayout = widgets.map((w) => {
+          const templateLayout = template.layouts?.[w.id]
+          return {
+            i: w.id,
+            ...w.defaultLayout,
+            ...(templateLayout ?? {}),
+            resizeHandles: ALL_HANDLES,
+          }
+        })
+        setLayout(newLayout)
+        try {
+          localStorage.setItem(storageKey, JSON.stringify(newLayout))
+        } catch {
+          /* ignore */
+        }
+      }
     }
 
     try {
