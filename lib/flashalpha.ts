@@ -330,18 +330,41 @@ export async function getGEX(symbol: string): Promise<FAGreekExposure | null> {
 }
 
 export async function getIVMetrics(symbol: string): Promise<FAIVMetrics | null> {
-  // Use the summary endpoint to get IV-related data
-  const summary = await getExposureSummary(symbol)
-  if (!summary) return null
+  // Try to get IV data from the volatility surface endpoint
+  const [volSurface, summary] = await Promise.all([
+    getVolSurface(symbol),
+    getExposureSummary(symbol),
+  ])
+  
+  // If we have neither, return null to let caller fall back to UW
+  if (!volSurface && !summary) return null
+  
+  // Extract term structure from vol surface if available
+  const termStructure: { expiry: string; iv: number }[] = []
+  if (volSurface?.surface) {
+    for (const exp of volSurface.surface) {
+      // Get ATM IV (middle strike)
+      const midIdx = Math.floor(exp.strikes.length / 2)
+      const atmStrike = exp.strikes[midIdx]
+      const atmIv = atmStrike?.call_iv ?? atmStrike?.put_iv
+      if (atmIv != null) {
+        termStructure.push({ expiry: exp.expiry, iv: atmIv })
+      }
+    }
+  }
+  
+  // Calculate current IV from first expiration ATM
+  const iv_current = termStructure[0]?.iv ?? null
+  
   return {
-    symbol: summary.symbol,
-    date: summary.as_of,
-    iv_rank: null,
+    symbol: symbol.toUpperCase(),
+    date: summary?.as_of ?? volSurface?.date ?? new Date().toISOString().slice(0, 10),
+    iv_rank: null, // FlashAlpha doesn't provide this directly
     iv_percentile: null,
-    iv_current: null,
+    iv_current: iv_current,
     iv_30d_avg: null,
     iv_hv_spread: null,
-    term_structure: [],
+    term_structure: termStructure,
   }
 }
 

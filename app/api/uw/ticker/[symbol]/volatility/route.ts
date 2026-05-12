@@ -16,8 +16,8 @@ export async function GET(
     getVolatility(symbol),
   ])
 
-  // If FlashAlpha has data, transform it to match widget format
-  if (faMetrics) {
+  // If FlashAlpha has IV data, transform it to match widget format
+  if (faMetrics && faMetrics.iv_current != null) {
     const data = [{
       date: faMetrics.date,
       iv30: faMetrics.iv_current ?? null,
@@ -31,6 +31,18 @@ export async function GET(
     return NextResponse.json({ data, source: "flashalpha" })
   }
 
-  // Fall back to UW data
-  return NextResponse.json({ data: uwData, source: "unusual-whales" })
+  // Fall back to UW data - transform to expected format if needed
+  if (uwData && uwData.length > 0) {
+    const data = uwData.map((d) => ({
+      date: d.date,
+      iv30: d.iv30,
+      hv30: d.hv30,
+      iv_rank: d.ivRank,
+      iv_percentile: d.ivPercentile,
+    }))
+    return NextResponse.json({ data, source: "unusual-whales" })
+  }
+
+  // No data from either source
+  return NextResponse.json({ data: [], source: null })
 }
