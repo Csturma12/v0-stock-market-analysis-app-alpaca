@@ -212,6 +212,9 @@ export function AnalysisLayout({
           }
         })
         setLayout(merged)
+      } else {
+        // No saved layout - use defaults from widgets
+        setLayout(defaults)
       }
 
       // Load saved layouts list
