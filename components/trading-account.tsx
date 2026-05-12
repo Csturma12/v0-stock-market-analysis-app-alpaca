@@ -2,50 +2,109 @@
 
 import useSWR from "swr"
 import { cn } from "@/lib/utils"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 export function TradingAccount() {
-  const { data } = useSWR("/api/trading/account", fetcher, { refreshInterval: 15_000 })
-  const acc = data?.account
+  // Fetch Alpaca data
+  const { data: alpacaData } = useSWR("/api/trading/account", fetcher, { refreshInterval: 15_000 })
+  const acc = alpacaData?.account
 
-  if (acc?.error) {
-    return (
-      <div className="rounded-lg border border-[color:var(--color-bear)]/40 bg-[color:var(--color-bear)]/10 p-5">
-        <h3 className="mb-1 text-base font-semibold">Alpaca not connected</h3>
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          Add ALPACA_API_KEY and ALPACA_SECRET_API_KEY as env vars (use Paper keys from app.alpaca.markets).
-          <br />
-          <span className="text-xs text-muted-foreground/70">Error: {acc?.error}</span>
-        </p>
-      </div>
-    )
-  }
+  // Fetch Webull data
+  const { data: webullData, error: webullError } = useSWR("/api/webull/account", fetcher, { refreshInterval: 15_000 })
+  const webull = webullData?.data?.balance ?? webullData?.balance
 
-  const equity = Number(acc?.equity ?? 0)
-  const lastEquity = Number(acc?.last_equity ?? 0)
-  const dayPct = lastEquity ? ((equity - lastEquity) / lastEquity) * 100 : 0
-  const up = dayPct >= 0
+  // Alpaca calculations
+  const alpacaEquity = Number(acc?.equity ?? 0)
+  const alpacaLastEquity = Number(acc?.last_equity ?? 0)
+  const alpacaDayPct = alpacaLastEquity ? ((alpacaEquity - alpacaLastEquity) / alpacaLastEquity) * 100 : 0
+  const alpacaUp = alpacaDayPct >= 0
+
+  // Webull calculations
+  const webullEquity = webull?.net_liquidation ?? 0
+  const webullCash = webull?.total_cash ?? 0
+  const webullBP = webull?.buying_power ?? 0
+
+  // Combined total
+  const totalEquity = alpacaEquity + webullEquity
+
+  // Check for Alpaca error
+  const alpacaError = acc?.error || alpacaData?.error
 
   return (
-    <div className="rounded-lg border border-border bg-card p-5">
-      <div className="mb-4 flex items-baseline justify-between">
-        <h3 className="text-base font-semibold">Paper Account</h3>
-        <span className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
-          {acc?.status ?? "—"}
-        </span>
+    <div className="rounded-lg border border-border bg-card">
+      {/* Header with combined equity */}
+      <div className="flex items-center justify-between border-b border-border px-5 py-3">
+        <h3 className="text-base font-semibold">Trading Accounts</h3>
+        <div className="text-right">
+          <div className="font-mono text-lg font-bold tabular-nums">{fmt(totalEquity)}</div>
+          <div className="font-mono text-[10px] uppercase text-muted-foreground">Combined Equity</div>
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <Cell label="Equity" value={fmt(equity)} />
-        <Cell
-          label="Day P&L"
-          value={`${up ? "+" : ""}${dayPct.toFixed(2)}%`}
-          color={up ? "text-[color:var(--color-bull)]" : "text-[color:var(--color-bear)]"}
-        />
-        <Cell label="Cash" value={fmt(Number(acc?.cash ?? 0))} />
-        <Cell label="Buying Power" value={fmt(Number(acc?.buying_power ?? 0))} />
-      </div>
+      <Tabs defaultValue="alpaca" className="p-4">
+        <TabsList className="mb-4 grid w-full grid-cols-2">
+          <TabsTrigger value="alpaca" className="text-xs">
+            Alpaca (Paper)
+          </TabsTrigger>
+          <TabsTrigger value="webull" className="text-xs">
+            Webull (Live)
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Alpaca Tab */}
+        <TabsContent value="alpaca">
+          {alpacaError ? (
+            <div className="rounded-lg border border-[color:var(--color-bear)]/40 bg-[color:var(--color-bear)]/10 p-4">
+              <h4 className="mb-1 text-sm font-semibold">Alpaca not connected</h4>
+              <p className="text-xs text-muted-foreground">
+                Add ALPACA_API_KEY and ALPACA_SECRET_API_KEY as env vars.
+                <br />
+                <span className="text-[10px] text-muted-foreground/70">Error: {alpacaError}</span>
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+              <Cell label="Equity" value={fmt(alpacaEquity)} />
+              <Cell
+                label="Day P&L"
+                value={`${alpacaUp ? "+" : ""}${alpacaDayPct.toFixed(2)}%`}
+                color={alpacaUp ? "text-[color:var(--color-bull)]" : "text-[color:var(--color-bear)]"}
+              />
+              <Cell label="Cash" value={fmt(Number(acc?.cash ?? 0))} />
+              <Cell label="Buying Power" value={fmt(Number(acc?.buying_power ?? 0))} />
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Webull Tab */}
+        <TabsContent value="webull">
+          {webullError || webullData?.error ? (
+            <div className="rounded-lg border border-[color:var(--color-bear)]/40 bg-[color:var(--color-bear)]/10 p-4">
+              <h4 className="mb-1 text-sm font-semibold">Webull not connected</h4>
+              <p className="text-xs text-muted-foreground">
+                Add WEBULL_APP_KEY and WEBULL_APP_SECRET as env vars.
+                <br />
+                <span className="text-[10px] text-muted-foreground/70">
+                  Error: {webullData?.error || webullError?.message || "Failed to connect"}
+                </span>
+              </p>
+            </div>
+          ) : webull ? (
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+              <Cell label="Equity" value={fmt(webullEquity)} />
+              <Cell label="Cash" value={fmt(webullCash)} />
+              <Cell label="Buying Power" value={fmt(webullBP)} />
+              <Cell label="Status" value="LIVE" color="text-green-500" />
+            </div>
+          ) : (
+            <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
+              Loading Webull account...
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

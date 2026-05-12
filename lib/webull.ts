@@ -105,6 +105,12 @@ async function webullRequest<T>(
   queryParams: Record<string, string> = {},
   body?: object
 ): Promise<T> {
+  // Check if credentials are configured
+  if (!APP_KEY || !APP_SECRET) {
+    console.error("[Webull] Missing WEBULL_APP_KEY or WEBULL_APP_SECRET")
+    throw new Error("Webull credentials not configured")
+  }
+
   const bodyString = body ? JSON.stringify(body) : ""
   const headers = buildHeaders(path, queryParams, bodyString)
 
@@ -113,6 +119,8 @@ async function webullRequest<T>(
     : ""
 
   const url = `${BASE_URL}${path}${queryString}`
+  
+  console.log(`[v0] Webull request: ${method} ${url}`)
 
   const res = await fetch(url, {
     method,
@@ -127,7 +135,9 @@ async function webullRequest<T>(
     throw new Error(`Webull ${res.status}: ${errBody.slice(0, 300)}`)
   }
 
-  return res.json() as Promise<T>
+  const data = await res.json() as T
+  console.log(`[v0] Webull response:`, JSON.stringify(data).slice(0, 200))
+  return data
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -142,11 +152,11 @@ export type WebullAccount = {
 }
 
 export async function getAccounts(): Promise<WebullAccount[]> {
-  const data = await webullRequest<{ accounts?: WebullAccount[] }>(
+  const data = await webullRequest<{ data?: { account_list?: WebullAccount[] } }>(
     "GET",
-    "/openapi/account/list"
+    "/openapi/account/v2/list"
   )
-  return data.accounts ?? []
+  return data.data?.account_list ?? []
 }
 
 export type WebullBalance = {
@@ -164,13 +174,14 @@ export type WebullBalance = {
 
 export async function getAccountBalance(accountId: string): Promise<WebullBalance | null> {
   try {
-    const data = await webullRequest<WebullBalance>(
+    const data = await webullRequest<{ data?: WebullBalance }>(
       "GET",
-      "/openapi/account/balance",
+      "/openapi/account/v2/balance",
       { account_id: accountId }
     )
-    return data
-  } catch {
+    return data.data ?? null
+  } catch (err) {
+    console.error("[Webull] getAccountBalance error:", err)
     return null
   }
 }
@@ -191,13 +202,14 @@ export type WebullPosition = {
 
 export async function getPositions(accountId: string): Promise<WebullPosition[]> {
   try {
-    const data = await webullRequest<{ positions?: WebullPosition[] }>(
+    const data = await webullRequest<{ data?: { positions?: WebullPosition[] } }>(
       "GET",
-      "/openapi/account/positions",
+      "/openapi/account/v2/positions",
       { account_id: accountId }
     )
-    return data.positions ?? []
-  } catch {
+    return data.data?.positions ?? []
+  } catch (err) {
+    console.error("[Webull] getPositions error:", err)
     return []
   }
 }
@@ -225,13 +237,14 @@ export type WebullOrder = {
 
 export async function getOpenOrders(accountId: string): Promise<WebullOrder[]> {
   try {
-    const data = await webullRequest<{ orders?: WebullOrder[] }>(
+    const data = await webullRequest<{ data?: { orders?: WebullOrder[] } }>(
       "GET",
-      "/openapi/trade/orders/open",
+      "/openapi/trade/v2/orders/open",
       { account_id: accountId }
     )
-    return data.orders ?? []
-  } catch {
+    return data.data?.orders ?? []
+  } catch (err) {
+    console.error("[Webull] getOpenOrders error:", err)
     return []
   }
 }
@@ -241,13 +254,14 @@ export async function getOrderHistory(
   limit = 50
 ): Promise<WebullOrder[]> {
   try {
-    const data = await webullRequest<{ orders?: WebullOrder[] }>(
+    const data = await webullRequest<{ data?: { orders?: WebullOrder[] } }>(
       "GET",
-      "/openapi/trade/orders/history",
+      "/openapi/trade/v2/orders/history",
       { account_id: accountId, page_size: String(limit) }
     )
-    return data.orders ?? []
-  } catch {
+    return data.data?.orders ?? []
+  } catch (err) {
+    console.error("[Webull] getOrderHistory error:", err)
     return []
   }
 }
@@ -265,14 +279,15 @@ export type PlaceOrderParams = {
 
 export async function placeOrder(params: PlaceOrderParams): Promise<WebullOrder | null> {
   try {
-    const data = await webullRequest<WebullOrder>(
+    const data = await webullRequest<{ data?: WebullOrder }>(
       "POST",
-      "/openapi/trade/order/place",
+      "/openapi/trade/v2/order/place",
       {},
       params
     )
-    return data
-  } catch {
+    return data.data ?? null
+  } catch (err) {
+    console.error("[Webull] placeOrder error:", err)
     return null
   }
 }
@@ -284,11 +299,12 @@ export async function cancelOrder(
   try {
     await webullRequest(
       "DELETE",
-      "/openapi/trade/order/cancel",
+      "/openapi/trade/v2/order/cancel",
       { account_id: accountId, order_id: orderId }
     )
     return true
-  } catch {
+  } catch (err) {
+    console.error("[Webull] cancelOrder error:", err)
     return false
   }
 }
