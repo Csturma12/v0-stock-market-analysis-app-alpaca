@@ -207,7 +207,6 @@ export function AnalysisLayout({
     try {
       // Load current layout
       const raw = localStorage.getItem(storageKey)
-      console.log("[v0] Layout init - storageKey:", storageKey, "hasRaw:", !!raw)
       if (raw) {
         const saved = JSON.parse(raw) as Layout[]
         const merged = widgets.map((w) => {
@@ -219,11 +218,9 @@ export function AnalysisLayout({
             resizeHandles: ALL_HANDLES,
           }
         })
-        console.log("[v0] Using merged layout:", merged.map(l => ({ i: l.i, x: l.x, y: l.y })))
         setLayout(merged)
       } else {
         // No saved layout - use defaults from widgets
-        console.log("[v0] Using defaults:", defaults.map(l => ({ i: l.i, x: l.x, y: l.y })))
         setLayout(defaults)
       }
 
@@ -646,17 +643,24 @@ export function AnalysisLayout({
       >
         {widgets
           .filter((w) => !hiddenWidgets.has(w.id))
-          .map((w) => (
-            <div key={w.id} className="overflow-hidden">
-              <WidgetFrame
-                title={w.title}
-                showClose={!locked}
-                onClose={() => handleHideWidget(w.id)}
+          .map((w) => {
+            const l = layout.find((lay) => lay.i === w.id) ?? w.defaultLayout
+            return (
+              <div 
+                key={w.id} 
+                className="overflow-hidden"
+                data-grid={{ x: l.x, y: l.y, w: l.w, h: l.h }}
               >
-                {w.content}
-              </WidgetFrame>
-            </div>
-          ))}
+                <WidgetFrame
+                  title={w.title}
+                  showClose={!locked}
+                  onClose={() => handleHideWidget(w.id)}
+                >
+                  {w.content}
+                </WidgetFrame>
+              </div>
+            )
+          })}
       </ReactGridLayout>
 
       {/* Save Layout Dialog */}
