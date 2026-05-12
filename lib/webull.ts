@@ -728,9 +728,6 @@ export async function getStockFootprint(symbol: string): Promise<any> {
     return null
   }
 }
-    return false
-  }
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Stock Data APIs
