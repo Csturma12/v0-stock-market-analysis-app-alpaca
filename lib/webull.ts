@@ -1,138 +1,90 @@
 /**
- * Webull Trading API client (OAuth2)
- * Docs: https://developer.webull.com/
- * 
- * Flow:
- * 1. User clicks "Connect Webull" -> redirected to Webull login
- * 2. After login, redirected back with authorization code
- * 3. Exchange code for access token
- * 4. Use access token for API calls
+ * Webull Trading API client
+ * Base URL: https://us-openapi-alb.uat.webullbroker.com (UAT)
+ * Token endpoint: /openapi/auth/token/create
  */
 
 // Environment: UAT (test) or Production
 const IS_UAT = process.env.WEBULL_ENV !== "production"
-const BASE_HOST = IS_UAT
-  ? "us-openapi-alb.uat.webullbroker.com"
-  : "us-openapi.webullbroker.com"
+const BASE_URL = IS_UAT
+  ? "https://us-openapi-alb.uat.webullbroker.com"
+  : "https://us-openapi.webullbroker.com"
 
-// All API calls go through the same host
-const OAUTH_HOST = BASE_HOST
-const API_HOST = BASE_HOST
+const APP_KEY = process.env.WEBULL_APP_KEY ?? ""
+const APP_SECRET = process.env.WEBULL_APP_SECRET ?? ""
 
-const CLIENT_ID = process.env.WEBULL_APP_KEY ?? ""
-const CLIENT_SECRET = process.env.WEBULL_APP_SECRET ?? ""
-
-// Stored access token (in production, store in database per user)
-let accessToken: string | null = process.env.WEBULL_ACCESS_TOKEN ?? null
-let refreshToken: string | null = process.env.WEBULL_REFRESH_TOKEN ?? null
+// Cached access token (with expiry tracking)
+let cachedToken: { access_token: string; expires_at: number } | null = null
 
 // ─────────────────────────────────────────────────────────────────────────────
-// OAuth2 Authentication
+// Token Management
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Generate the OAuth2 authorization URL
- * Redirect user to this URL to start the login flow
+ * Create access token using app credentials
+ * POST /openapi/auth/token/create
  */
-export function getAuthorizationUrl(redirectUri: string, state?: string): string {
-  const params = new URLSearchParams({
-    response_type: "code",
-    client_id: CLIENT_ID,
-    scope: "user:trade:wr", // Read/write trading permissions
-    redirect_uri: redirectUri,
-    state: state ?? crypto.randomUUID(),
+async function createAccessToken(): Promise<string> {
+  if (!APP_KEY || !APP_SECRET) {
+    throw new Error("WEBULL_APP_KEY and WEBULL_APP_SECRET must be set")
+  }
+
+  // Return cached token if still valid (with 60s buffer)
+  if (cachedToken && cachedToken.expires_at > Date.now() + 60000) {
+    return cachedToken.access_token
+  }
+
+  console.log("[v0] Webull: Creating new access token...")
+
+  const res = await fetch(`${BASE_URL}/openapi/auth/token/create`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      app_key: APP_KEY,
+      app_secret: APP_SECRET,
+    }),
   })
-  return `https://${OAUTH_HOST}/oauth2/authenticate/login?${params.toString()}`
-}
 
-/**
- * Exchange authorization code for access token
- * Call this after user is redirected back with the code
- */
-export async function exchangeCodeForToken(
-  code: string,
-  redirectUri: string
-): Promise<{ access_token: string; refresh_token: string; expires_in: number } | null> {
-  try {
-    // Use the token/create endpoint per Webull docs
-    const res = await fetch(`https://${OAUTH_HOST}/openapi/auth/token/create`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        grant_type: "authorization_code",
-        code,
-        client_id: CLIENT_ID,
-        client_secret: CLIENT_SECRET,
-        redirect_uri: redirectUri,
-      }),
-    })
-
-    if (!res.ok) {
-      const err = await res.text()
-      console.error("[Webull] Token exchange failed:", res.status, err)
-      return null
-    }
-
-    const data = await res.json()
-    accessToken = data.access_token
-    refreshToken = data.refresh_token
-    return data
-  } catch (err) {
-    console.error("[Webull] Token exchange error:", err)
-    return null
+  if (!res.ok) {
+    const err = await res.text().catch(() => "")
+    console.error("[Webull] Token creation failed:", res.status, err)
+    throw new Error(`Webull token creation failed: ${res.status} ${err.slice(0, 200)}`)
   }
-}
 
-/**
- * Refresh the access token using the refresh token
- */
-export async function refreshAccessToken(): Promise<boolean> {
-  if (!refreshToken) return false
+  const data = await res.json()
+  console.log("[v0] Webull token response:", JSON.stringify(data).slice(0, 200))
 
-  try {
-    const res = await fetch(`https://${OAUTH_HOST}/openapi/auth/token/refresh`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        grant_type: "refresh_token",
-        refresh_token: refreshToken,
-        client_id: CLIENT_ID,
-        client_secret: CLIENT_SECRET,
-      }),
-    })
+  // Handle Webull's response format
+  const token = data.data?.access_token ?? data.access_token
+  const expiresIn = data.data?.expires_in ?? data.expires_in ?? 3600
 
-    if (!res.ok) {
-      console.error("[Webull] Token refresh failed:", res.status)
-      return false
-    }
-
-    const data = await res.json()
-    accessToken = data.access_token
-    if (data.refresh_token) refreshToken = data.refresh_token
-    return true
-  } catch (err) {
-    console.error("[Webull] Token refresh error:", err)
-    return false
+  if (!token) {
+    throw new Error(`Webull token creation failed: no access_token in response`)
   }
+
+  // Cache the token
+  cachedToken = {
+    access_token: token,
+    expires_at: Date.now() + expiresIn * 1000,
+  }
+
+  return token
 }
 
 /**
- * Set tokens manually (e.g., from database or env vars)
+ * Check if credentials are configured
  */
-export function setTokens(access: string, refresh?: string) {
-  accessToken = access
-  if (refresh) refreshToken = refresh
+export function isConfigured(): boolean {
+  return !!(APP_KEY && APP_SECRET)
 }
 
 /**
- * Check if we have a valid access token
+ * Check if we can authenticate (alias for isConfigured since we use app credentials)
  */
 export function isAuthenticated(): boolean {
-  return !!accessToken
+  return isConfigured()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -145,15 +97,18 @@ async function webullRequest<T>(
   queryParams: Record<string, string> = {},
   body?: object
 ): Promise<T> {
-  if (!accessToken) {
-    throw new Error("Webull not authenticated - user must complete OAuth login")
+  if (!isConfigured()) {
+    throw new Error("Webull credentials not configured - add WEBULL_APP_KEY and WEBULL_APP_SECRET")
   }
+
+  const accessToken = await createAccessToken()
 
   const queryString = Object.keys(queryParams).length
     ? "?" + new URLSearchParams(queryParams).toString()
     : ""
 
-  const url = `https://${API_HOST}${path}${queryString}`
+  const url = `${BASE_URL}${path}${queryString}`
+  console.log(`[v0] Webull request: ${method} ${url}`)
 
   const res = await fetch(url, {
     method,
@@ -166,13 +121,26 @@ async function webullRequest<T>(
   })
 
   if (res.status === 401) {
-    // Token expired, try to refresh
-    const refreshed = await refreshAccessToken()
-    if (refreshed) {
-      // Retry the request
-      return webullRequest(method, path, queryParams, body)
+    // Token invalid/expired, clear cache and retry once
+    cachedToken = null
+    const newToken = await createAccessToken()
+    
+    const retryRes = await fetch(url, {
+      method,
+      headers: {
+        Authorization: `Bearer ${newToken}`,
+        "Content-Type": "application/json",
+      },
+      body: body ? JSON.stringify(body) : undefined,
+      cache: "no-store",
+    })
+
+    if (!retryRes.ok) {
+      const errBody = await retryRes.text().catch(() => "")
+      throw new Error(`Webull ${retryRes.status}: ${errBody.slice(0, 300)}`)
     }
-    throw new Error("Webull authentication expired - please reconnect")
+
+    return retryRes.json() as Promise<T>
   }
 
   if (!res.ok) {
@@ -181,7 +149,9 @@ async function webullRequest<T>(
     throw new Error(`Webull ${res.status}: ${errBody.slice(0, 300)}`)
   }
 
-  return res.json() as Promise<T>
+  const data = await res.json() as T
+  console.log(`[v0] Webull response:`, JSON.stringify(data).slice(0, 300))
+  return data
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -198,7 +168,7 @@ export type WebullAccount = {
 export async function getAccounts(): Promise<WebullAccount[]> {
   const data = await webullRequest<{ data?: { account_list?: WebullAccount[] } }>(
     "GET",
-    "/api/trade/v2/account/list"
+    "/openapi/account/profile"
   )
   return data.data?.account_list ?? []
 }
@@ -220,7 +190,7 @@ export async function getAccountBalance(accountId: string): Promise<WebullBalanc
   try {
     const data = await webullRequest<{ data?: WebullBalance }>(
       "GET",
-      "/api/trade/v2/account/balance",
+      "/openapi/account/balance",
       { account_id: accountId }
     )
     return data.data ?? null
@@ -248,7 +218,7 @@ export async function getPositions(accountId: string): Promise<WebullPosition[]>
   try {
     const data = await webullRequest<{ data?: { positions?: WebullPosition[] } }>(
       "GET",
-      "/api/trade/v2/account/positions",
+      "/openapi/account/positions",
       { account_id: accountId }
     )
     return data.data?.positions ?? []
@@ -283,7 +253,7 @@ export async function getOpenOrders(accountId: string): Promise<WebullOrder[]> {
   try {
     const data = await webullRequest<{ data?: { orders?: WebullOrder[] } }>(
       "GET",
-      "/api/trade/v2/order/list",
+      "/openapi/trade/orders",
       { account_id: accountId, status: "PENDING" }
     )
     return data.data?.orders ?? []
@@ -297,7 +267,7 @@ export async function getOrderHistory(accountId: string, limit = 50): Promise<We
   try {
     const data = await webullRequest<{ data?: { orders?: WebullOrder[] } }>(
       "GET",
-      "/api/trade/v2/order/list",
+      "/openapi/trade/orders",
       { account_id: accountId, page_size: String(limit) }
     )
     return data.data?.orders ?? []
@@ -322,7 +292,7 @@ export async function placeOrder(params: PlaceOrderParams): Promise<WebullOrder 
   try {
     const data = await webullRequest<{ data?: WebullOrder }>(
       "POST",
-      "/api/trade/v2/order/place",
+      "/openapi/trade/order/place",
       {},
       params
     )
@@ -337,7 +307,7 @@ export async function cancelOrder(accountId: string, orderId: string): Promise<b
   try {
     await webullRequest(
       "POST",
-      "/api/trade/v2/order/cancel",
+      "/openapi/trade/order/cancel",
       {},
       { account_id: accountId, order_id: orderId }
     )
@@ -345,6 +315,87 @@ export async function cancelOrder(accountId: string, orderId: string): Promise<b
   } catch (err) {
     console.error("[Webull] cancelOrder error:", err)
     return false
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Stock Data APIs (from your endpoint list)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type WebullSnapshot = {
+  symbol: string
+  last_price: number
+  open: number
+  high: number
+  low: number
+  close: number
+  volume: number
+  change: number
+  change_pct: number
+  bid: number
+  ask: number
+  bid_size: number
+  ask_size: number
+}
+
+export async function getSnapshot(symbol: string): Promise<WebullSnapshot | null> {
+  try {
+    const data = await webullRequest<{ data?: WebullSnapshot }>(
+      "GET",
+      "/openapi/market/snapshot",
+      { symbol }
+    )
+    return data.data ?? null
+  } catch (err) {
+    console.error("[Webull] getSnapshot error:", err)
+    return null
+  }
+}
+
+export type WebullBar = {
+  timestamp: string
+  open: number
+  high: number
+  low: number
+  close: number
+  volume: number
+}
+
+export async function getHistoricalBars(
+  symbol: string,
+  interval: "M1" | "M5" | "M15" | "M30" | "H1" | "D" = "D",
+  limit = 100
+): Promise<WebullBar[]> {
+  try {
+    const data = await webullRequest<{ data?: { bars?: WebullBar[] } }>(
+      "GET",
+      "/openapi/market/bars",
+      { symbol, interval, limit: String(limit) }
+    )
+    return data.data?.bars ?? []
+  } catch (err) {
+    console.error("[Webull] getHistoricalBars error:", err)
+    return []
+  }
+}
+
+export type WebullQuote = {
+  symbol: string
+  bids: Array<{ price: number; qty: number; orders: number }>
+  asks: Array<{ price: number; qty: number; orders: number }>
+}
+
+export async function getQuotes(symbol: string, depth = 5): Promise<WebullQuote | null> {
+  try {
+    const data = await webullRequest<{ data?: WebullQuote }>(
+      "GET",
+      "/openapi/market/quotes",
+      { symbol, depth: String(depth) }
+    )
+    return data.data ?? null
+  } catch (err) {
+    console.error("[Webull] getQuotes error:", err)
+    return null
   }
 }
 

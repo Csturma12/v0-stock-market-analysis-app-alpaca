@@ -1,11 +1,8 @@
 "use client"
 
-import { useState } from "react"
 import useSWR from "swr"
 import { cn } from "@/lib/utils"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Button } from "@/components/ui/button"
-import { ExternalLink, Loader2 } from "lucide-react"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
@@ -91,52 +88,19 @@ export function TradingAccount() {
 }
 
 function WebullSection({ data, error, webull }: { data: any; error: any; webull: any }) {
-  const [connecting, setConnecting] = useState(false)
-
-  const connectWebull = async () => {
-    setConnecting(true)
-    try {
-      const res = await fetch(`/api/webull/auth?origin=${window.location.origin}`)
-      const { authUrl } = await res.json()
-      if (authUrl) {
-        window.location.href = authUrl
-      }
-    } catch (err) {
-      console.error("Failed to get Webull auth URL:", err)
-      setConnecting(false)
-    }
-  }
-
-  // Not authenticated - show connect button
-  const needsAuth = data?.error?.includes("not authenticated") || data?.error?.includes("OAuth")
-  
+  // Show error state if Webull not configured or API error
   if (error || data?.error) {
+    const needsConfig = data?.needsConfig || data?.error?.includes("not configured")
     return (
       <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4">
-        <h4 className="mb-2 text-sm font-semibold">Connect Webull Account</h4>
-        <p className="mb-4 text-xs text-muted-foreground">
-          {needsAuth 
-            ? "Link your Webull account to enable live trading and view positions."
+        <h4 className="mb-2 text-sm font-semibold">
+          {needsConfig ? "Webull Not Configured" : "Webull Connection Error"}
+        </h4>
+        <p className="text-xs text-muted-foreground">
+          {needsConfig 
+            ? "Add WEBULL_APP_KEY and WEBULL_APP_SECRET as environment variables to connect your Webull account."
             : `Error: ${data?.error || error?.message || "Failed to connect"}`}
         </p>
-        <Button
-          onClick={connectWebull}
-          disabled={connecting}
-          size="sm"
-          className="gap-2"
-        >
-          {connecting ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Connecting...
-            </>
-          ) : (
-            <>
-              <ExternalLink className="h-4 w-4" />
-              Connect Webull
-            </>
-          )}
-        </Button>
       </div>
     )
   }
