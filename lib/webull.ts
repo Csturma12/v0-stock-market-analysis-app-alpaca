@@ -1,8 +1,10 @@
 /**
  * Webull Trading API client
- * Base URL: https://us-openapi-alb.uat.webullbroker.com (UAT)
- * Token endpoint: /openapi/auth/token/create
+ * Uses HMAC-SHA1 signature authentication as required by Webull API
+ * Docs: https://developer.webull.com/apis/docs/authentication/signature
  */
+
+import crypto from "crypto"
 
 // Environment: UAT (test) or Production
 const IS_UAT = process.env.WEBULL_ENV !== "production"
@@ -14,14 +16,82 @@ const APP_KEY = process.env.WEBULL_APP_KEY ?? ""
 const APP_SECRET = process.env.WEBULL_APP_SECRET ?? ""
 
 // Cached access token (with expiry tracking)
-let cachedToken: { access_token: string; expires_at: number } | null = null
+let cachedToken: { token: string; expires_at: number } | null = null
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Signature Generation (HMAC-SHA1)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function generateNonce(): string {
+  return crypto.randomUUID().replace(/-/g, "")
+}
+
+function getTimestamp(): string {
+  return new Date().toISOString().replace(/\.\d{3}Z$/, "Z")
+}
+
+/**
+ * Build the signature string per Webull docs:
+ * METHOD|PATH|TIMESTAMP|NONCE|BODY
+ */
+function buildSignatureString(
+  method: string,
+  path: string,
+  timestamp: string,
+  nonce: string,
+  body: string = ""
+): string {
+  return `${method}|${path}|${timestamp}|${nonce}|${body}`
+}
+
+/**
+ * Compute HMAC-SHA1 signature
+ */
+function computeSignature(signatureString: string): string {
+  return crypto
+    .createHmac("sha1", APP_SECRET)
+    .update(signatureString)
+    .digest("base64")
+}
+
+/**
+ * Build required headers for Webull API
+ */
+function buildHeaders(
+  method: string,
+  path: string,
+  body: string = "",
+  accessToken?: string
+): Record<string, string> {
+  const timestamp = getTimestamp()
+  const nonce = generateNonce()
+  const signatureString = buildSignatureString(method, path, timestamp, nonce, body)
+  const signature = computeSignature(signatureString)
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    "x-app-key": APP_KEY,
+    "x-timestamp": timestamp,
+    "x-signature": signature,
+    "x-signature-algorithm": "HMAC-SHA1",
+    "x-signature-version": "1.0",
+    "x-signature-nonce": nonce,
+    "x-version": "v2",
+  }
+
+  if (accessToken) {
+    headers["x-access-token"] = accessToken
+  }
+
+  return headers
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Token Management
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Create access token using app credentials
+ * Create access token using signed request
  * POST /openapi/auth/token/create
  */
 async function createAccessToken(): Promise<string> {
@@ -31,42 +101,48 @@ async function createAccessToken(): Promise<string> {
 
   // Return cached token if still valid (with 60s buffer)
   if (cachedToken && cachedToken.expires_at > Date.now() + 60000) {
-    return cachedToken.access_token
+    return cachedToken.token
   }
 
   console.log("[v0] Webull: Creating new access token...")
 
-  const res = await fetch(`${BASE_URL}/openapi/auth/token/create`, {
+  const path = "/openapi/auth/token/create"
+  const body = JSON.stringify({})
+  const headers = buildHeaders("POST", path, body)
+
+  const res = await fetch(`${BASE_URL}${path}`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      app_key: APP_KEY,
-      app_secret: APP_SECRET,
-    }),
+    headers,
+    body,
   })
 
+  const responseText = await res.text()
+  console.log("[v0] Webull token response:", res.status, responseText.slice(0, 300))
+
   if (!res.ok) {
-    const err = await res.text().catch(() => "")
-    console.error("[Webull] Token creation failed:", res.status, err)
-    throw new Error(`Webull token creation failed: ${res.status} ${err.slice(0, 200)}`)
+    throw new Error(`Webull token creation failed: ${res.status} ${responseText.slice(0, 200)}`)
   }
 
-  const data = await res.json()
-  console.log("[v0] Webull token response:", JSON.stringify(data).slice(0, 200))
-
-  // Handle Webull's response format
-  const token = data.data?.access_token ?? data.access_token
-  const expiresIn = data.data?.expires_in ?? data.expires_in ?? 3600
+  const data = JSON.parse(responseText)
+  
+  // Handle Webull's response format: { data: { token, expires, status } }
+  const token = data.data?.token ?? data.token
+  const expires = data.data?.expires ?? data.expires ?? 3600
 
   if (!token) {
-    throw new Error(`Webull token creation failed: no access_token in response`)
+    throw new Error(`Webull token creation failed: no token in response - ${responseText.slice(0, 200)}`)
   }
 
-  // Cache the token
+  // Token status may be "PENDING" if 2FA is required
+  const status = data.data?.status ?? data.status
+  if (status === "PENDING") {
+    console.log("[v0] Webull token status: PENDING - requires SMS verification in Webull App")
+  }
+
+  // Cache the token (expires is in seconds)
+  const expiresIn = typeof expires === "number" ? expires : 15 * 24 * 3600 // default 15 days
   cachedToken = {
-    access_token: token,
+    token,
     expires_at: Date.now() + expiresIn * 1000,
   }
 
@@ -81,7 +157,7 @@ export function isConfigured(): boolean {
 }
 
 /**
- * Check if we can authenticate (alias for isConfigured since we use app credentials)
+ * Check if we can authenticate
  */
 export function isAuthenticated(): boolean {
   return isConfigured()
@@ -107,51 +183,52 @@ async function webullRequest<T>(
     ? "?" + new URLSearchParams(queryParams).toString()
     : ""
 
-  const url = `${BASE_URL}${path}${queryString}`
+  const fullPath = `${path}${queryString}`
+  const bodyString = body ? JSON.stringify(body) : ""
+  const headers = buildHeaders(method, fullPath, bodyString, accessToken)
+
+  const url = `${BASE_URL}${fullPath}`
   console.log(`[v0] Webull request: ${method} ${url}`)
 
   const res = await fetch(url, {
     method,
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-    body: body ? JSON.stringify(body) : undefined,
+    headers,
+    body: bodyString || undefined,
     cache: "no-store",
   })
 
+  const responseText = await res.text()
+  
   if (res.status === 401) {
     // Token invalid/expired, clear cache and retry once
     cachedToken = null
+    console.log("[v0] Webull: Token expired, refreshing...")
+    
     const newToken = await createAccessToken()
+    const retryHeaders = buildHeaders(method, fullPath, bodyString, newToken)
     
     const retryRes = await fetch(url, {
       method,
-      headers: {
-        Authorization: `Bearer ${newToken}`,
-        "Content-Type": "application/json",
-      },
-      body: body ? JSON.stringify(body) : undefined,
+      headers: retryHeaders,
+      body: bodyString || undefined,
       cache: "no-store",
     })
 
+    const retryText = await retryRes.text()
     if (!retryRes.ok) {
-      const errBody = await retryRes.text().catch(() => "")
-      throw new Error(`Webull ${retryRes.status}: ${errBody.slice(0, 300)}`)
+      throw new Error(`Webull ${retryRes.status}: ${retryText.slice(0, 300)}`)
     }
 
-    return retryRes.json() as Promise<T>
+    return JSON.parse(retryText) as T
   }
 
   if (!res.ok) {
-    const errBody = await res.text().catch(() => "")
-    console.error(`[Webull] ${method} ${path} ${res.status}: ${errBody.slice(0, 300)}`)
-    throw new Error(`Webull ${res.status}: ${errBody.slice(0, 300)}`)
+    console.error(`[Webull] ${method} ${path} ${res.status}: ${responseText.slice(0, 300)}`)
+    throw new Error(`Webull ${res.status}: ${responseText.slice(0, 300)}`)
   }
 
-  const data = await res.json() as T
-  console.log(`[v0] Webull response:`, JSON.stringify(data).slice(0, 300))
-  return data
+  console.log(`[v0] Webull response:`, responseText.slice(0, 300))
+  return JSON.parse(responseText) as T
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -319,7 +396,7 @@ export async function cancelOrder(accountId: string, orderId: string): Promise<b
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Stock Data APIs (from your endpoint list)
+// Stock Data APIs
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type WebullSnapshot = {
