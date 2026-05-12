@@ -28,7 +28,8 @@ const APP_SECRET = process.env.WEBULL_APP_SECRET ?? ""
 let cachedToken: { token: string; expires_at: number } | null = null
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Signature Generation (HMAC-SHA1)
+// Signature Generation (HMAC-SHA1) - Per Webull Docs
+// https://developer.webull.com/apis/docs/authentication/signature
 // ─────────────────────────────────────────────────────────────────────────────
 
 function generateNonce(): string {
@@ -36,53 +37,87 @@ function generateNonce(): string {
 }
 
 function getTimestamp(): string {
+  // ISO 8601 format: YYYY-MM-DDThh:mm:ssZ (UTC only)
   return new Date().toISOString().replace(/\.\d{3}Z$/, "Z")
 }
 
 /**
- * Build the signature string per Webull docs:
- * METHOD|PATH|TIMESTAMP|NONCE|BODY
+ * Generate signature following Webull's 3-step algorithm:
+ * Step 1: Build signature string = path&sortedParams[&MD5(body)]
+ * Step 2: Construct signing key = app_secret&
+ * Step 3: signature = base64(HMAC-SHA1(key, urlEncode(signatureString)))
  */
-function buildSignatureString(
-  method: string,
+function generateSignature(
   path: string,
+  queryParams: Record<string, string>,
+  body: string,
+  host: string,
   timestamp: string,
-  nonce: string,
-  body: string = ""
+  nonce: string
 ): string {
-  return `${method}|${path}|${timestamp}|${nonce}|${body}`
-}
+  // Signing headers (x-signature and x-version are NOT included)
+  const signingHeaders: Record<string, string> = {
+    "x-app-key": APP_KEY,
+    "x-timestamp": timestamp,
+    "x-signature-algorithm": "HMAC-SHA1",
+    "x-signature-version": "1.0",
+    "x-signature-nonce": nonce,
+    host: host,
+  }
 
-/**
- * Compute HMAC-SHA1 signature
- */
-function computeSignature(signatureString: string): string {
-  return crypto
-    .createHmac("sha1", APP_SECRET)
-    .update(signatureString)
+  // Step 1: Build Signature String
+  // 1. Merge query params + signing headers
+  const allParams: Record<string, string> = { ...queryParams, ...signingHeaders }
+
+  // 2-3. Sort by key, join as key=value pairs
+  const str1 = Object.keys(allParams)
+    .sort()
+    .map((k) => `${k}=${allParams[k]}`)
+    .join("&")
+
+  // 4. If body exists, compute MD5 (uppercase hex)
+  let str3: string
+  if (body && body !== "{}") {
+    const str2 = crypto.createHash("md5").update(body).digest("hex").toUpperCase()
+    str3 = `${path}&${str1}&${str2}`
+  } else {
+    str3 = `${path}&${str1}`
+  }
+
+  // 5. URL-encode the string
+  const encodedString = encodeURIComponent(str3)
+
+  // Step 2: Construct the signing key (app_secret + "&")
+  const signingKey = `${APP_SECRET}&`
+
+  // Step 3: Generate the signature
+  const signature = crypto
+    .createHmac("sha1", signingKey)
+    .update(encodedString)
     .digest("base64")
+
+  return signature
 }
 
 /**
  * Build required headers for Webull API
- * Per docs, use x-app-secret directly (not signature-based auth)
  */
 function buildHeaders(
-  method: string,
   path: string,
+  queryParams: Record<string, string> = {},
   body: string = "",
+  host: string,
   accessToken?: string
 ): Record<string, string> {
   const timestamp = getTimestamp()
   const nonce = generateNonce()
-  const signatureString = buildSignatureString(method, path, timestamp, nonce, body)
-  const signature = computeSignature(signatureString)
+  const signature = generateSignature(path, queryParams, body, host, timestamp, nonce)
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     Accept: "application/json",
+    host: host,
     "x-app-key": APP_KEY,
-    "x-app-secret": APP_SECRET, // Some endpoints use direct secret
     "x-timestamp": timestamp,
     "x-signature": signature,
     "x-signature-algorithm": "HMAC-SHA1",
@@ -117,15 +152,13 @@ async function createAccessToken(): Promise<string> {
   }
 
   console.log("[v0] Webull: Creating new access token...")
-  console.log("[v0] Webull AUTH_URL:", AUTH_URL)
-  console.log("[v0] Webull APP_KEY length:", APP_KEY.length)
 
   // Use the server-to-server token creation endpoint
   const path = "/openapi/auth/token/create"
-  const body = JSON.stringify({})
-  const headers = buildHeaders("POST", path, body)
+  const body = "{}"
+  const host = new URL(TRADE_URL).host
+  const headers = buildHeaders(path, {}, body, host)
 
-  // Use TRADE_URL per user-provided endpoint: us-openapi-alb.uat.webullbroker.com
   const res = await fetch(`${TRADE_URL}${path}`, {
     method: "POST",
     headers,
@@ -195,13 +228,14 @@ async function webullRequest<T>(
 
   const accessToken = await createAccessToken()
 
+  const bodyString = body ? JSON.stringify(body) : ""
+  const host = new URL(BASE_URL).host
+  const headers = buildHeaders(path, queryParams, bodyString, host, accessToken)
+
   const queryString = Object.keys(queryParams).length
     ? "?" + new URLSearchParams(queryParams).toString()
     : ""
-
   const fullPath = `${path}${queryString}`
-  const bodyString = body ? JSON.stringify(body) : ""
-  const headers = buildHeaders(method, fullPath, bodyString, accessToken)
 
   const url = `${BASE_URL}${fullPath}`
   console.log(`[v0] Webull request: ${method} ${url}`)
@@ -221,7 +255,7 @@ async function webullRequest<T>(
     console.log("[v0] Webull: Token expired, refreshing...")
     
     const newToken = await createAccessToken()
-    const retryHeaders = buildHeaders(method, fullPath, bodyString, newToken)
+    const retryHeaders = buildHeaders(path, queryParams, bodyString, host, newToken)
     
     const retryRes = await fetch(url, {
       method,
@@ -494,7 +528,7 @@ export async function getQuotes(symbol: string, depth = 5): Promise<WebullQuote 
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Convenience: Get full account summary
-// ─────────────────────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────────────────��─
 
 export type AccountSummary = {
   account: WebullAccount
