@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { cn } from "@/lib/utils"
 import { Sparkles, TrendingUp, TrendingDown, Minus, Shield, Target, Brain, Zap, Loader2 } from "lucide-react"
 
@@ -75,6 +75,13 @@ export function TradeIdeaPanel({ symbol }: { symbol: string }) {
   const [executing, setExecuting] = useState<"claude" | "openai" | null>(null)
   const [execResult, setExecResult] = useState<{ success: boolean; message: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setClaudeIdea(null)
+    setOpenaiIdea(null)
+    setExecResult(null)
+    setError(null)
+  }, [symbol])
 
   async function executeTrade(source: "claude" | "openai") {
     const idea = source === "claude" ? claudeIdea : openaiIdea
@@ -151,7 +158,16 @@ export function TradeIdeaPanel({ symbol }: { symbol: string }) {
       if (claudeData.error && openaiData.error) {
         setError("Both AI models failed to generate ideas")
       } else {
-        if (claudeData.idea) setClaudeIdea(claudeData.idea)
+        if (claudeData.idea) {
+          setClaudeIdea(claudeData.idea)
+          window.dispatchEvent(new CustomEvent("trade-idea-ready", {
+            detail: {
+              symbol: symbol.toUpperCase(),
+              catalysts: claudeData.idea.catalysts,
+              risks: claudeData.idea.risks,
+            },
+          }))
+        }
         if (!openaiData.error) setOpenaiIdea(openaiData)
       }
     } catch (e: any) {

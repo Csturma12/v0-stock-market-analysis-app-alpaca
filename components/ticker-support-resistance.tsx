@@ -9,9 +9,10 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json())
 export function TickerSupportResistance({ symbol }: { symbol: string }) {
   const { data } = useSWR(`/api/ticker/${symbol}`, fetcher, { refreshInterval: 60_000 })
   const t = data?.technicals ?? {}
-  const quote = data?.quote ?? {}
+  const snapshot = data?.snapshot ?? {}
+  const details = data?.details ?? {}
 
-  const price = quote.last ?? quote.close ?? null
+  const price = snapshot.price ?? null
 
   // Derive key levels from technicals + 52w range
   type LevelType = "resistance" | "support" | "neutral"
@@ -19,7 +20,7 @@ export function TickerSupportResistance({ symbol }: { symbol: string }) {
     p && level ? (p > level ? "support" : "resistance") : "neutral"
 
   const levels: { label: string; value: number | null; type: LevelType }[] = [
-    { label: "52w High", value: quote.week52High ?? null, type: "resistance" as LevelType },
+    { label: "52w High", value: snapshot.week52High ?? details.high52Week ?? null, type: "resistance" as LevelType },
     { label: "Monthly High", value: t.monthlyHigh ?? null, type: "resistance" as LevelType },
     { label: "Weekly High", value: t.weeklyHigh ?? null, type: "resistance" as LevelType },
     { label: "SMA 200", value: t.sma200 ?? null, type: resolve(price, t.sma200 ?? null) },
@@ -28,7 +29,7 @@ export function TickerSupportResistance({ symbol }: { symbol: string }) {
     { label: "SMA 14", value: t.sma14 ?? null, type: resolve(price, t.sma14 ?? null) },
     { label: "Weekly Low", value: t.weeklyLow ?? null, type: "support" as LevelType },
     { label: "Monthly Low", value: t.monthlyLow ?? null, type: "support" as LevelType },
-    { label: "52w Low", value: quote.week52Low ?? null, type: "support" as LevelType },
+    { label: "52w Low", value: snapshot.week52Low ?? details.low52Week ?? null, type: "support" as LevelType },
   ].filter((l) => l.value != null)
 
   return (

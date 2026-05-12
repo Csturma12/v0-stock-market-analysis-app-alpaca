@@ -12,8 +12,13 @@ export function TickerCatalystsRisks({ symbol }: { symbol: string }) {
   const [data, setData] = useState<IdeaData | null>(null)
 
   useEffect(() => {
+    let active = true
+    setData(null)
+
     // Listen for the trade idea to be generated so we don't double-fetch
-    const handler = (e: CustomEvent<IdeaData>) => setData(e.detail)
+    const handler = (e: CustomEvent<IdeaData & { symbol?: string }>) => {
+      if (!e.detail.symbol || e.detail.symbol === symbol.toUpperCase()) setData(e.detail)
+    }
     window.addEventListener("trade-idea-ready" as any, handler)
 
     // Also attempt a passive fetch in case the idea already ran
@@ -24,11 +29,14 @@ export function TickerCatalystsRisks({ symbol }: { symbol: string }) {
     })
       .then((r) => r.json())
       .then((json) => {
-        if (json.idea) setData({ catalysts: json.idea.catalysts, risks: json.idea.risks })
+        if (active && json.idea) setData({ catalysts: json.idea.catalysts, risks: json.idea.risks })
       })
       .catch(() => {})
 
-    return () => window.removeEventListener("trade-idea-ready" as any, handler)
+    return () => {
+      active = false
+      window.removeEventListener("trade-idea-ready" as any, handler)
+    }
   }, [symbol])
 
   if (!data) {

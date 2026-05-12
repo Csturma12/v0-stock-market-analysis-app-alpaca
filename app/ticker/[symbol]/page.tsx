@@ -79,7 +79,7 @@ export default async function TickerPage({ params }: { params: Promise<{ symbol:
     {
       id: "contract-drill-down",
       title: "Options Drill-Down",
-      content: <OptionContractDrillDownWidget />,
+      content: <OptionContractDrillDownWidget symbol={sym} />,
       defaultLayout: { x: 6, y: 24, w: 6, h: 10, minW: 4, minH: 8 },
     },
 

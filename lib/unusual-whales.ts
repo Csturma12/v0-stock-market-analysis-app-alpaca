@@ -15,7 +15,7 @@ async function uwFetch<T>(path: string): Promise<T | null> {
     const url = `${BASE}${path}`
     const res = await fetch(url, {
       headers: headers(),
-      next: { revalidate: 60 },
+      cache: "no-store",
     })
     if (!res.ok) {
       const body = await res.text().catch(() => "")

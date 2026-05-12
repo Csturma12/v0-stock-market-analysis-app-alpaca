@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useEffect, useMemo, useState, useCallback } from "react"
 import useSWR from "swr"
 import { WidgetFrame } from "./widget-frame"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -21,6 +21,15 @@ import {
 import { formatCurrency, formatNumber, formatTime } from "@/lib/format"
 
 type Tab = "flow" | "historic" | "intraday" | "profile"
+
+type TickerFlowAlert = {
+  optionChain: string
+  type: "call" | "put"
+  strike: number
+  expiry: string
+  premium: number
+  createdAt: string
+}
 
 type FlowTrade = {
   time: string
@@ -50,10 +59,46 @@ type VolumeProfile = {
 
 const fetcher = (url: string) => fetch(url).then((r) => r.ok ? r.json() : null)
 
-export function OptionContractDrillDownWidget() {
+export function OptionContractDrillDownWidget({ symbol }: { symbol?: string }) {
   const [contractId, setContractId] = useState("")
   const [activeContract, setActiveContract] = useState<string | null>(null)
   const [tab, setTab] = useState<Tab>("flow")
+  const sym = symbol?.toUpperCase()
+
+  const { data: tickerFlow } = useSWR<{ alerts: TickerFlowAlert[] }>(
+    sym ? `/api/uw/ticker/${encodeURIComponent(sym)}/options-flow` : null,
+    fetcher,
+    {
+      refreshInterval: 60_000,
+      revalidateOnMount: true,
+      keepPreviousData: false,
+    },
+  )
+
+  const topContracts = useMemo(() => {
+    const seen = new Set<string>()
+    return (tickerFlow?.alerts ?? [])
+      .filter((alert) => alert.optionChain)
+      .sort((a, b) => b.premium - a.premium)
+      .filter((alert) => {
+        if (seen.has(alert.optionChain)) return false
+        seen.add(alert.optionChain)
+        return true
+      })
+      .slice(0, 6)
+  }, [tickerFlow])
+
+  useEffect(() => {
+    setContractId("")
+    setActiveContract(null)
+    setTab("flow")
+  }, [sym])
+
+  useEffect(() => {
+    if (!activeContract && topContracts[0]?.optionChain) {
+      setActiveContract(topContracts[0].optionChain.toUpperCase())
+    }
+  }, [activeContract, topContracts])
 
   const handleSearch = useCallback(() => {
     if (contractId.trim()) {
@@ -103,7 +148,7 @@ export function OptionContractDrillDownWidget() {
       {/* Search bar */}
       <div className="flex gap-2 mb-3">
         <Input
-          placeholder="Enter contract ID (e.g. AAPL240119C00150000)"
+          placeholder={sym ? `Search ${sym} contract ID` : "Enter contract ID"}
           value={contractId}
           onChange={(e) => setContractId(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSearch()}
@@ -114,9 +159,29 @@ export function OptionContractDrillDownWidget() {
         </Button>
       </div>
 
+      {topContracts.length > 0 && (
+        <div className="mb-3 flex flex-wrap gap-1.5">
+          {topContracts.map((contract) => (
+            <button
+              key={contract.optionChain}
+              type="button"
+              onClick={() => setActiveContract(contract.optionChain.toUpperCase())}
+              className={`rounded border px-2 py-1 font-mono text-[10px] transition-colors ${
+                activeContract === contract.optionChain.toUpperCase()
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border bg-muted/40 text-muted-foreground hover:text-foreground"
+              }`}
+              title={`${contract.type.toUpperCase()} ${contract.expiry} $${contract.strike}`}
+            >
+              {contract.type.toUpperCase()} ${contract.strike}
+            </button>
+          ))}
+        </div>
+      )}
+
       {!activeContract ? (
         <div className="flex items-center justify-center h-[200px] text-muted-foreground text-sm">
-          Enter a contract ID above to view details
+          {sym ? `Waiting for ${sym} option flow...` : "Enter a contract ID above to view details"}
         </div>
       ) : (
         <>
