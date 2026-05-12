@@ -479,11 +479,48 @@ export type WebullAccount = {
 }
 
 export async function getAccounts(): Promise<WebullAccount[]> {
-  const data = await webullRequest<{ data?: { account_list?: WebullAccount[] } }>(
-    "GET",
-    "/openapi/account/profile"
-  )
-  return data.data?.account_list ?? []
+  // Try broker API first (us-broker-api host)
+  try {
+    const accessToken = await createAccessToken()
+    const path = "/openapi/broker/account/list"
+    const host = new URL(BROKER_URL).host
+    const headers = buildHeaders(path, {}, "", host, accessToken)
+    
+    console.log(`[v0] Webull getAccounts: GET ${BROKER_URL}${path}`)
+    
+    const res = await fetch(`${BROKER_URL}${path}`, {
+      method: "GET",
+      headers,
+      cache: "no-store",
+    })
+    
+    const data = await res.json()
+    console.log(`[v0] Webull getAccounts response:`, JSON.stringify(data).slice(0, 300))
+    
+    if (data.data?.account_list) {
+      return data.data.account_list
+    }
+    if (data.data?.accounts) {
+      return data.data.accounts
+    }
+    if (Array.isArray(data.data)) {
+      return data.data
+    }
+  } catch (err) {
+    console.error("[Webull] getAccounts broker API error:", err)
+  }
+  
+  // Fallback to trade API
+  try {
+    const data = await webullRequest<{ data?: { account_list?: WebullAccount[] } }>(
+      "GET",
+      "/openapi/account/profile"
+    )
+    return data.data?.account_list ?? []
+  } catch (err) {
+    console.error("[Webull] getAccounts trade API error:", err)
+    return []
+  }
 }
 
 export type WebullBalance = {
