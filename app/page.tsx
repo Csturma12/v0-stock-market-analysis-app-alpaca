@@ -17,18 +17,19 @@ export const dynamic = "force-dynamic"
 
 export default function HomePage() {
   const widgets: Widget[] = [
-    // ROW 1: Sectors/Themes/Commodities (left) + Account Overview (right)
+    // ROW 1: Trading Accounts (top right) - listed first for priority
+    {
+      id: "accounts",
+      title: "Trading Accounts",
+      content: <DualAccountWidget />,
+      defaultLayout: { x: 8, y: 0, w: 4, h: 14, minW: 3, minH: 8 },
+    },
+    // ROW 1: Sectors/Themes/Commodities (top left)
     {
       id: "sectors-themes",
       title: "Sectors, Themes & Commodities",
       content: <HomeSectorPills />,
       defaultLayout: { x: 0, y: 0, w: 8, h: 14, minW: 6, minH: 10 },
-    },
-    {
-      id: "accounts",
-      title: "Account Overview",
-      content: <DualAccountWidget />,
-      defaultLayout: { x: 8, y: 0, w: 4, h: 14, minW: 3, minH: 8 },
     },
     // ROW 2: Flow widgets
     {
@@ -111,7 +112,7 @@ export default function HomePage() {
 
       {/* Adjustable widget grid */}
       <div className="mx-auto max-w-[1600px] px-4 py-3">
-        <AnalysisLayout widgets={widgets} storageKey="home:grid:v11" />
+        <AnalysisLayout widgets={widgets} storageKey="home:grid:v12" />
       </div>
     </main>
   )
