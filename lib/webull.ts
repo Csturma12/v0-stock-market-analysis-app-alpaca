@@ -552,6 +552,187 @@ export async function cancelOrder(accountId: string, orderId: string): Promise<b
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Market Data APIs
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type WebullTick = {
+  symbol: string
+  price: number
+  volume: number
+  timestamp: string
+  side?: "BUY" | "SELL"
+}
+
+export type WebullSnapshot = {
+  symbol: string
+  last_price: number
+  open: number
+  high: number
+  low: number
+  close: number
+  prev_close: number
+  volume: number
+  change: number
+  change_pct: number
+  timestamp: string
+}
+
+export type WebullQuote = {
+  symbol: string
+  bid: number
+  bid_size: number
+  ask: number
+  ask_size: number
+  spread: number
+  timestamp: string
+}
+
+export type WebullBar = {
+  symbol: string
+  open: number
+  high: number
+  low: number
+  close: number
+  volume: number
+  timestamp: string
+}
+
+/**
+ * Get tick-by-tick transaction records
+ * GET /openapi/market-data/stock/tick
+ */
+export async function getStockTicks(
+  symbol: string,
+  startTime?: string,
+  endTime?: string
+): Promise<WebullTick[]> {
+  try {
+    const params: Record<string, string> = { symbol }
+    if (startTime) params.start_time = startTime
+    if (endTime) params.end_time = endTime
+    
+    const data = await webullRequest<{ data?: { ticks?: WebullTick[] } }>(
+      "GET",
+      "/openapi/market-data/stock/tick",
+      params
+    )
+    return data.data?.ticks ?? []
+  } catch (err) {
+    console.error("[Webull] getStockTicks error:", err)
+    return []
+  }
+}
+
+/**
+ * Get real-time market snapshot
+ * GET /openapi/market-data/stock/snapshot
+ */
+export async function getStockSnapshot(symbol: string): Promise<WebullSnapshot | null> {
+  try {
+    const data = await webullRequest<{ data?: WebullSnapshot }>(
+      "GET",
+      "/openapi/market-data/stock/snapshot",
+      { symbol }
+    )
+    return data.data ?? null
+  } catch (err) {
+    console.error("[Webull] getStockSnapshot error:", err)
+    return null
+  }
+}
+
+/**
+ * Get order book / quote data
+ * GET /openapi/market-data/stock/quotes
+ */
+export async function getStockQuotes(symbol: string, depth = 5): Promise<WebullQuote | null> {
+  try {
+    const data = await webullRequest<{ data?: WebullQuote }>(
+      "GET",
+      "/openapi/market-data/stock/quotes",
+      { symbol, depth: String(depth) }
+    )
+    return data.data ?? null
+  } catch (err) {
+    console.error("[Webull] getStockQuotes error:", err)
+    return null
+  }
+}
+
+/**
+ * Get historical OHLCV bars (candlestick data)
+ * GET /openapi/market-data/stock/bars
+ * @param interval - M1, M5, M15, M30, H1, D, W, M
+ */
+export async function getStockBars(
+  symbol: string,
+  interval: "M1" | "M5" | "M15" | "M30" | "H1" | "D" | "W" | "M" = "D",
+  limit = 100
+): Promise<WebullBar[]> {
+  try {
+    const data = await webullRequest<{ data?: { bars?: WebullBar[] } }>(
+      "GET",
+      "/openapi/market-data/stock/bars",
+      { symbol, interval, limit: String(limit) }
+    )
+    return data.data?.bars ?? []
+  } catch (err) {
+    console.error("[Webull] getStockBars error:", err)
+    return []
+  }
+}
+
+/**
+ * Get historical bars for multiple symbols (batch)
+ * GET /openapi/market-data/stock/bars/batch
+ */
+export async function getStockBarsBatch(
+  symbols: string[],
+  interval: "M1" | "M5" | "M15" | "M30" | "H1" | "D" | "W" | "M" = "D",
+  limit = 100
+): Promise<Record<string, WebullBar[]>> {
+  try {
+    const data = await webullRequest<{ data?: Record<string, { bars?: WebullBar[] }> }>(
+      "GET",
+      "/openapi/market-data/stock/bars/batch",
+      { symbols: symbols.join(","), interval, limit: String(limit) }
+    )
+    
+    const result: Record<string, WebullBar[]> = {}
+    if (data.data) {
+      for (const [sym, val] of Object.entries(data.data)) {
+        result[sym] = val.bars ?? []
+      }
+    }
+    return result
+  } catch (err) {
+    console.error("[Webull] getStockBarsBatch error:", err)
+    return {}
+  }
+}
+
+/**
+ * Get order flow / footprint data
+ * GET /openapi/market-data/stock/footprint
+ */
+export async function getStockFootprint(symbol: string): Promise<any> {
+  try {
+    const data = await webullRequest<{ data?: any }>(
+      "GET",
+      "/openapi/market-data/stock/footprint",
+      { symbol }
+    )
+    return data.data ?? null
+  } catch (err) {
+    console.error("[Webull] getStockFootprint error:", err)
+    return null
+  }
+}
+    return false
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Stock Data APIs
 // ─────────────────────────────────────────────────────────────────────────────
 
