@@ -71,6 +71,7 @@ function AccountCard({
   dayPLPct,
   isLoading,
   error,
+  compact = false,
 }: {
   title: string
   badge: string
@@ -82,18 +83,19 @@ function AccountCard({
   dayPLPct?: number | null
   isLoading: boolean
   error?: string
+  compact?: boolean
 }) {
   return (
     <Card className="border-border bg-card">
-      <CardHeader className="pb-2">
+      <CardHeader className={cn("pb-2", compact && "px-3 py-2")}>
         <div className="flex items-center justify-between">
-          <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
+          <CardTitle className={cn("text-sm font-medium text-muted-foreground", compact && "text-xs")}>{title}</CardTitle>
           <Badge variant={badgeVariant} className="text-[10px]">
             {badge}
           </Badge>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className={cn(compact && "px-3 pb-3")}>
         {isLoading ? (
           <div className="flex items-center gap-2 text-muted-foreground">
             <RefreshCw className="h-4 w-4 animate-spin" />
@@ -105,9 +107,9 @@ function AccountCard({
             <span className="text-sm">{error}</span>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className={cn("space-y-3", compact && "space-y-1.5")}>
             <div>
-              <div className="text-2xl font-bold tabular-nums">
+              <div className={cn("text-2xl font-bold tabular-nums", compact && "text-base")}>
                 {equity !== null ? fmtUsd(equity) : "—"}
               </div>
               {dayPL !== null && dayPLPct !== null && (
@@ -121,16 +123,16 @@ function AccountCard({
                 </div>
               )}
             </div>
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <div className="flex items-center gap-1.5">
+            <div className={cn("grid grid-cols-2 gap-2 text-xs", compact && "gap-1 text-[10px]")}>
+              <div className="flex min-w-0 items-center gap-1">
                 <Wallet className="h-3 w-3 text-muted-foreground" />
-                <span className="text-muted-foreground">Cash:</span>
-                <span className="font-medium tabular-nums">{cash !== null ? fmtUsd(cash) : "—"}</span>
+                <span className="text-muted-foreground">Cash</span>
+                <span className="truncate font-medium tabular-nums">{cash !== null ? fmtUsd(cash) : "—"}</span>
               </div>
-              <div className="flex items-center gap-1.5">
+              <div className="flex min-w-0 items-center gap-1">
                 <BarChart3 className="h-3 w-3 text-muted-foreground" />
-                <span className="text-muted-foreground">BP:</span>
-                <span className="font-medium tabular-nums">{buyingPower !== null ? fmtUsd(buyingPower) : "—"}</span>
+                <span className="text-muted-foreground">BP</span>
+                <span className="truncate font-medium tabular-nums">{buyingPower !== null ? fmtUsd(buyingPower) : "—"}</span>
               </div>
             </div>
           </div>
@@ -212,7 +214,7 @@ function PositionsTable({
   )
 }
 
-export function DualAccountWidget() {
+export function DualAccountWidget({ compact = false }: { compact?: boolean }) {
   const [activeTab, setActiveTab] = useState<"overview" | "alpaca" | "webull">("overview")
 
   // Fetch Alpaca data
@@ -257,19 +259,19 @@ export function DualAccountWidget() {
   const totalEquity = (alpacaEquity ?? 0) + (webullEquity ?? 0)
 
   return (
-    <Card className="border-border bg-card">
-      <CardHeader className="pb-2">
+    <Card className="h-full border-border bg-card">
+      <CardHeader className={cn("pb-2", compact && "px-3 py-2")}>
         <div className="flex items-center justify-between">
-          <CardTitle className="text-base font-semibold">Trading Accounts</CardTitle>
+          <CardTitle className={cn("text-base font-semibold", compact && "text-sm")}>Trading Accounts</CardTitle>
           <div className="text-right">
-            <div className="text-lg font-bold tabular-nums">{fmtUsd(totalEquity)}</div>
+            <div className={cn("text-lg font-bold tabular-nums", compact && "text-sm")}>{fmtUsd(totalEquity)}</div>
             <div className="text-[10px] text-muted-foreground">Combined Equity</div>
           </div>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className={cn(compact && "px-3 pb-3")}>
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
-          <TabsList className="grid w-full grid-cols-3 mb-4">
+          <TabsList className={cn("grid w-full grid-cols-3 mb-4", compact && "mb-2 h-7")}>
             <TabsTrigger value="overview" className="text-xs">Overview</TabsTrigger>
             <TabsTrigger value="alpaca" className="text-xs">
               <span className="hidden sm:inline">Alpaca </span>Paper
@@ -279,8 +281,8 @@ export function DualAccountWidget() {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overview" className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
+          <TabsContent value="overview" className={cn("space-y-4", compact && "mt-0 space-y-2")}>
+            <div className={cn("grid gap-4 sm:grid-cols-2", compact && "gap-2 sm:grid-cols-1")}>
               <AccountCard
                 title="Alpaca"
                 badge="PAPER"
@@ -292,6 +294,7 @@ export function DualAccountWidget() {
                 dayPLPct={alpacaDayPLPct}
                 isLoading={alpacaAccountLoading}
                 error={alpacaAccountError ? "Failed to load" : undefined}
+                compact={compact}
               />
               <AccountCard
                 title="Webull"
@@ -302,6 +305,7 @@ export function DualAccountWidget() {
                 buyingPower={webullBP}
                 isLoading={webullAccountLoading}
                 error={webullAccountError ? "Failed to load" : undefined}
+                compact={compact}
               />
             </div>
           </TabsContent>

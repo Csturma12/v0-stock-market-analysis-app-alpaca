@@ -36,6 +36,12 @@ const THEME_ICONS: Record<string, React.ElementType> = {
   "semiconductors": CircuitBoard,
 }
 
+const COMMODITY_GROUPS = [
+  { id: "metals", label: "Metals", tickers: ["GLD", "SLV", "CPER", "PPLT", "PALL", "URA"] },
+  { id: "energy", label: "Energy", tickers: ["USO", "UNG", "BNO", "DBE", "XLE", "OIH"] },
+  { id: "agriculture", label: "Agriculture", tickers: ["DBA", "CORN", "WEAT", "SOYB", "CANE", "JO"] },
+]
+
 // Sector dot colors — fixed palette from screenshot
 const SECTOR_DOT_COLORS: Record<string, string> = {
   "Technology":              "#00ff88",
@@ -105,18 +111,18 @@ function CollapsibleGroup({
   const { border, glow } = groupSentimentColor(rows)
 
   return (
-    <div className={cn("rounded-sm border mb-1 overflow-hidden transition-all", border, open && glow)}>
+    <div className={cn("mb-0.5 overflow-hidden rounded-sm border transition-all", border, open && glow)}>
       {/* Header */}
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center gap-2 px-2.5 py-2 hover:bg-white/5 transition-colors"
+        className="flex w-full items-center gap-1.5 px-2 py-1.5 transition-colors hover:bg-white/5"
       >
         {Icon ? (
           <Icon className="h-3 w-3 shrink-0" style={{ color: dotColor }} />
         ) : (
           <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: dotColor }} />
         )}
-        <span className="flex-1 text-left font-mono text-[10px] font-bold uppercase tracking-widest" style={{ color: dotColor }}>
+        <span className="flex-1 truncate text-left font-mono text-[9px] font-bold uppercase tracking-widest" style={{ color: dotColor }}>
           {label}
         </span>
         <span className="font-mono text-[10px] text-muted-foreground/60 tabular-nums">{count}</span>
@@ -127,7 +133,7 @@ function CollapsibleGroup({
       {open && rows.length > 0 && (
         <div className="border-t border-border/30">
           {/* Column headers */}
-          <div className="grid grid-cols-[16px_1fr_56px_52px_36px] gap-1 px-2.5 py-1 border-b border-border/20">
+          <div className="grid grid-cols-[14px_1fr_48px_44px_32px] gap-1 border-b border-border/20 px-2 py-0.5">
             <span className="font-mono text-[8px] text-muted-foreground/40 text-right">#</span>
             <span className="font-mono text-[8px] uppercase text-muted-foreground/40">Ticker</span>
             <span className="font-mono text-[8px] uppercase text-muted-foreground/40 text-right">Price</span>
@@ -141,14 +147,14 @@ function CollapsibleGroup({
               <Link
                 key={snap.ticker}
                 href={`/ticker/${snap.ticker}`}
-                className="grid grid-cols-[16px_1fr_56px_52px_36px] gap-1 items-center px-2.5 py-1 hover:bg-white/5 transition-colors border-b border-border/10 last:border-0"
+                className="grid grid-cols-[14px_1fr_48px_44px_32px] items-center gap-1 border-b border-border/10 px-2 py-0.5 transition-colors last:border-0 hover:bg-white/5"
               >
                 {/* Rank */}
                 <span className="font-mono text-[8px] text-muted-foreground/30 text-right tabular-nums">{idx + 1}</span>
 
                 {/* Ticker + % */}
                 <div>
-                  <p className="font-mono text-[10px] font-bold text-foreground leading-none">{snap.ticker}</p>
+                  <p className="font-mono text-[9px] font-bold leading-none text-foreground">{snap.ticker}</p>
                   <p className={cn(
                     "font-mono text-[8px] tabular-nums leading-none mt-0.5",
                     snap.changePct == null ? "text-muted-foreground/40" :
@@ -159,14 +165,14 @@ function CollapsibleGroup({
                 </div>
 
                 {/* Price */}
-                <span className="font-mono text-[9px] tabular-nums text-muted-foreground text-right">
+                <span className="text-right font-mono text-[8px] tabular-nums text-muted-foreground">
                   {snap.price != null ? `$${snap.price.toFixed(2)}` : "—"}
                 </span>
 
                 {/* Signal pill */}
                 <div className="flex justify-center">
                   <span className={cn(
-                    "inline-flex items-center gap-0.5 rounded px-1 py-px font-mono text-[8px] font-bold uppercase leading-none",
+                    "inline-flex items-center gap-0.5 rounded px-1 py-px font-mono text-[7px] font-bold uppercase leading-none",
                     signal === "BUY"  && "bg-[color:var(--color-bull)]/15 text-[color:var(--color-bull)]",
                     signal === "SELL" && "bg-[color:var(--color-bear)]/15 text-[color:var(--color-bear)]",
                     signal === "HOLD" && "bg-amber-500/15 text-amber-400",
@@ -180,7 +186,7 @@ function CollapsibleGroup({
 
                 {/* Conviction */}
                 <span className={cn(
-                  "font-mono text-[9px] tabular-nums text-right font-semibold",
+                  "text-right font-mono text-[8px] font-semibold tabular-nums",
                   score >= 75 ? "text-[color:var(--color-bull)]" :
                   score <= 55 ? "text-[color:var(--color-bear)]" : "text-amber-400"
                 )}>
@@ -201,6 +207,7 @@ export function HomeSectorPills() {
     const set = new Set<string>()
     SECTORS.forEach((s) => s.subIndustries.forEach((sub) => sub.tickers.forEach((t) => set.add(t))))
     THEMES.forEach((t) => t.tickers.forEach((tk) => set.add(tk)))
+    COMMODITY_GROUPS.forEach((g) => g.tickers.forEach((tk) => set.add(tk)))
     return [...set]
   }, [])
 
@@ -267,16 +274,39 @@ export function HomeSectorPills() {
     [snapMap, medianVol]
   )
 
+  const commodityGroups = useMemo(() =>
+    COMMODITY_GROUPS.map((group) => {
+      const rows: Row[] = group.tickers
+        .map((t) => {
+          const snap = snapMap.get(t) ?? { ticker: t, price: null, change: null, changePct: null, volume: null }
+          const score = convictionScore(snap, medianVol)
+          return { snap, score, signal: signalFor(snap, score) } as Row
+        })
+        .sort((a, b) => b.score - a.score)
+      return {
+        id: group.id,
+        label: group.label,
+        count: rows.length,
+        dotColor: groupSentimentColor(rows).dot,
+        icon: Globe,
+        rows,
+      }
+    }),
+    [snapMap, medianVol]
+  )
+
   // Split: left col = first 5 sectors + first 5 themes, right col = next 6 sectors + rest themes
   const leftSectors  = sectorGroups.slice(0, 5)
   const rightSectors = sectorGroups.slice(5)
-  const leftThemes   = themeGroups.slice(0, 5)
-  const rightThemes  = themeGroups.slice(5)
+  const leftThemes   = themeGroups.slice(0, 4)
+  const rightThemes  = themeGroups.slice(4)
+  const leftCommodities = commodityGroups.slice(0, 2)
+  const rightCommodities = commodityGroups.slice(2)
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
       {/* Legend */}
-      <div className="shrink-0 flex items-center justify-end gap-3 px-2 py-1 border-b border-border/30">
+      <div className="flex shrink-0 items-center justify-end gap-2 border-b border-border/30 px-2 py-1">
         <span className="flex items-center gap-1 font-mono text-[8px] text-[#00ff88]">
           <span className="h-1.5 w-1.5 rounded-full bg-[#00ff88]" />Bullish
         </span>
@@ -289,27 +319,35 @@ export function HomeSectorPills() {
       </div>
 
       {/* Two-column grid */}
-      <div className="flex-1 min-h-0 grid grid-cols-2 divide-x divide-border/30 overflow-hidden">
+      <div className="grid min-h-0 flex-1 grid-cols-2 divide-x divide-border/30 overflow-hidden">
         {/* Left column */}
-        <div className="overflow-y-auto p-1 space-y-0">
+        <div className="space-y-0 overflow-y-auto p-1">
           <p className="font-mono text-[8px] uppercase tracking-widest text-muted-foreground/40 px-1 pb-1">Sectors</p>
           {leftSectors.map((g) => (
             <CollapsibleGroup key={g.label} label={g.label} count={g.count} dotColor={g.dotColor} rows={g.rows} defaultOpen={false} />
           ))}
-          <p className="font-mono text-[8px] uppercase tracking-widest text-muted-foreground/40 px-1 pt-2 pb-1">Themes</p>
+          <p className="px-1 pb-1 pt-1.5 font-mono text-[8px] uppercase tracking-widest text-muted-foreground/40">Themes</p>
           {leftThemes.map((g) => (
+            <CollapsibleGroup key={g.id} label={g.label} count={g.count} dotColor={g.dotColor} icon={g.icon} rows={g.rows} defaultOpen={false} />
+          ))}
+          <p className="px-1 pb-1 pt-1.5 font-mono text-[8px] uppercase tracking-widest text-muted-foreground/40">Commodities</p>
+          {leftCommodities.map((g) => (
             <CollapsibleGroup key={g.id} label={g.label} count={g.count} dotColor={g.dotColor} icon={g.icon} rows={g.rows} defaultOpen={false} />
           ))}
         </div>
 
         {/* Right column */}
-        <div className="overflow-y-auto p-1 space-y-0">
+        <div className="space-y-0 overflow-y-auto p-1">
           <p className="font-mono text-[8px] uppercase tracking-widest text-muted-foreground/40 px-1 pb-1">Sectors</p>
           {rightSectors.map((g) => (
             <CollapsibleGroup key={g.label} label={g.label} count={g.count} dotColor={g.dotColor} rows={g.rows} defaultOpen={false} />
           ))}
-          <p className="font-mono text-[8px] uppercase tracking-widest text-muted-foreground/40 px-1 pt-2 pb-1">Themes</p>
+          <p className="px-1 pb-1 pt-1.5 font-mono text-[8px] uppercase tracking-widest text-muted-foreground/40">Themes</p>
           {rightThemes.map((g) => (
+            <CollapsibleGroup key={g.id} label={g.label} count={g.count} dotColor={g.dotColor} icon={g.icon} rows={g.rows} defaultOpen={false} />
+          ))}
+          <p className="px-1 pb-1 pt-1.5 font-mono text-[8px] uppercase tracking-widest text-muted-foreground/40">Commodities</p>
+          {rightCommodities.map((g) => (
             <CollapsibleGroup key={g.id} label={g.label} count={g.count} dotColor={g.dotColor} icon={g.icon} rows={g.rows} defaultOpen={false} />
           ))}
         </div>
