@@ -1,8 +1,11 @@
 "use client"
 
+import { useState } from "react"
 import useSWR from "swr"
 import { cn } from "@/lib/utils"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Button } from "@/components/ui/button"
+import { ExternalLink, Loader2 } from "lucide-react"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
@@ -80,31 +83,82 @@ export function TradingAccount() {
 
         {/* Webull Tab */}
         <TabsContent value="webull">
-          {webullError || webullData?.error ? (
-            <div className="rounded-lg border border-[color:var(--color-bear)]/40 bg-[color:var(--color-bear)]/10 p-4">
-              <h4 className="mb-1 text-sm font-semibold">Webull not connected</h4>
-              <p className="text-xs text-muted-foreground">
-                Add WEBULL_APP_KEY and WEBULL_APP_SECRET as env vars.
-                <br />
-                <span className="text-[10px] text-muted-foreground/70">
-                  Error: {webullData?.error || webullError?.message || "Failed to connect"}
-                </span>
-              </p>
-            </div>
-          ) : webull ? (
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-              <Cell label="Equity" value={fmt(webullEquity)} />
-              <Cell label="Cash" value={fmt(webullCash)} />
-              <Cell label="Buying Power" value={fmt(webullBP)} />
-              <Cell label="Status" value="LIVE" color="text-green-500" />
-            </div>
-          ) : (
-            <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
-              Loading Webull account...
-            </div>
-          )}
+          <WebullSection data={webullData} error={webullError} webull={webull} />
         </TabsContent>
       </Tabs>
+    </div>
+  )
+}
+
+function WebullSection({ data, error, webull }: { data: any; error: any; webull: any }) {
+  const [connecting, setConnecting] = useState(false)
+
+  const connectWebull = async () => {
+    setConnecting(true)
+    try {
+      const res = await fetch(`/api/webull/auth?origin=${window.location.origin}`)
+      const { authUrl } = await res.json()
+      if (authUrl) {
+        window.location.href = authUrl
+      }
+    } catch (err) {
+      console.error("Failed to get Webull auth URL:", err)
+      setConnecting(false)
+    }
+  }
+
+  // Not authenticated - show connect button
+  const needsAuth = data?.error?.includes("not authenticated") || data?.error?.includes("OAuth")
+  
+  if (error || data?.error) {
+    return (
+      <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4">
+        <h4 className="mb-2 text-sm font-semibold">Connect Webull Account</h4>
+        <p className="mb-4 text-xs text-muted-foreground">
+          {needsAuth 
+            ? "Link your Webull account to enable live trading and view positions."
+            : `Error: ${data?.error || error?.message || "Failed to connect"}`}
+        </p>
+        <Button
+          onClick={connectWebull}
+          disabled={connecting}
+          size="sm"
+          className="gap-2"
+        >
+          {connecting ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Connecting...
+            </>
+          ) : (
+            <>
+              <ExternalLink className="h-4 w-4" />
+              Connect Webull
+            </>
+          )}
+        </Button>
+      </div>
+    )
+  }
+
+  if (webull) {
+    const webullEquity = webull?.net_liquidation ?? 0
+    const webullCash = webull?.total_cash ?? 0
+    const webullBP = webull?.buying_power ?? 0
+    
+    return (
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <Cell label="Equity" value={fmt(webullEquity)} />
+        <Cell label="Cash" value={fmt(webullCash)} />
+        <Cell label="Buying Power" value={fmt(webullBP)} />
+        <Cell label="Status" value="LIVE" color="text-green-500" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
+      Loading Webull account...
     </div>
   )
 }

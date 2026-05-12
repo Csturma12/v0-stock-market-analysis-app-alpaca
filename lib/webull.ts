@@ -1,98 +1,136 @@
 /**
- * Webull Trading API client
- * Docs: https://developer.webull.com/api-doc/
+ * Webull Trading API client (OAuth2)
+ * Docs: https://developer.webull.com/
  * 
- * Supports: Account info, positions, orders, trading
+ * Flow:
+ * 1. User clicks "Connect Webull" -> redirected to Webull login
+ * 2. After login, redirected back with authorization code
+ * 3. Exchange code for access token
+ * 4. Use access token for API calls
  */
 
-import crypto from "crypto"
+// Environment: UAT (test) or Production
+const IS_UAT = process.env.WEBULL_ENV === "uat" || !process.env.WEBULL_ENV
+const OAUTH_HOST = IS_UAT
+  ? "us-oauth-open-api.uat.webullbroker.com"
+  : "us-oauth-open-api.webullbroker.com"
+const API_HOST = IS_UAT
+  ? "us-trade-open-api.uat.webullbroker.com"
+  : "us-trade-open-api.webullbroker.com"
 
-const APP_KEY = process.env.WEBULL_APP_KEY ?? ""
-const APP_SECRET = process.env.WEBULL_APP_SECRET ?? ""
-const HOST = "api.webull.com" // Production endpoint
-const BASE_URL = `https://${HOST}`
+const CLIENT_ID = process.env.WEBULL_APP_KEY ?? ""
+const CLIENT_SECRET = process.env.WEBULL_APP_SECRET ?? ""
+
+// Stored access token (in production, store in database per user)
+let accessToken: string | null = process.env.WEBULL_ACCESS_TOKEN ?? null
+let refreshToken: string | null = process.env.WEBULL_REFRESH_TOKEN ?? null
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Signature Generation (HMAC-SHA1)
+// OAuth2 Authentication
 // ─────────────────────────────────────────────────────────────────────────────
 
-function generateNonce(): string {
-  return crypto.randomUUID().replace(/-/g, "")
+/**
+ * Generate the OAuth2 authorization URL
+ * Redirect user to this URL to start the login flow
+ */
+export function getAuthorizationUrl(redirectUri: string, state?: string): string {
+  const params = new URLSearchParams({
+    response_type: "code",
+    client_id: CLIENT_ID,
+    scope: "user:trade:wr", // Read/write trading permissions
+    redirect_uri: redirectUri,
+    state: state ?? crypto.randomUUID(),
+  })
+  return `https://${OAUTH_HOST}/oauth2/authorize?${params.toString()}`
 }
 
-function generateTimestamp(): string {
-  return new Date().toISOString().split(".")[0] + "Z"
+/**
+ * Exchange authorization code for access token
+ * Call this after user is redirected back with the code
+ */
+export async function exchangeCodeForToken(
+  code: string,
+  redirectUri: string
+): Promise<{ access_token: string; refresh_token: string; expires_in: number } | null> {
+  try {
+    const res = await fetch(`https://${OAUTH_HOST}/oauth2/token`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        code,
+        client_id: CLIENT_ID,
+        client_secret: CLIENT_SECRET,
+        redirect_uri: redirectUri,
+      }).toString(),
+    })
+
+    if (!res.ok) {
+      const err = await res.text()
+      console.error("[Webull] Token exchange failed:", res.status, err)
+      return null
+    }
+
+    const data = await res.json()
+    accessToken = data.access_token
+    refreshToken = data.refresh_token
+    return data
+  } catch (err) {
+    console.error("[Webull] Token exchange error:", err)
+    return null
+  }
 }
 
-function generateSignature(
-  path: string,
-  queryParams: Record<string, string>,
-  bodyString: string,
-  timestamp: string,
-  nonce: string
-): string {
-  // Signing headers (x-signature and x-version are NOT included)
-  const signingHeaders: Record<string, string> = {
-    "x-app-key": APP_KEY,
-    "x-timestamp": timestamp,
-    "x-signature-algorithm": "HMAC-SHA1",
-    "x-signature-version": "1.0",
-    "x-signature-nonce": nonce,
-    host: HOST,
+/**
+ * Refresh the access token using the refresh token
+ */
+export async function refreshAccessToken(): Promise<boolean> {
+  if (!refreshToken) return false
+
+  try {
+    const res = await fetch(`https://${OAUTH_HOST}/oauth2/token`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: refreshToken,
+        client_id: CLIENT_ID,
+        client_secret: CLIENT_SECRET,
+      }).toString(),
+    })
+
+    if (!res.ok) {
+      console.error("[Webull] Token refresh failed:", res.status)
+      return false
+    }
+
+    const data = await res.json()
+    accessToken = data.access_token
+    if (data.refresh_token) refreshToken = data.refresh_token
+    return true
+  } catch (err) {
+    console.error("[Webull] Token refresh error:", err)
+    return false
   }
-
-  // Step 1: Merge query params + signing headers
-  const allParams = { ...queryParams, ...signingHeaders }
-
-  // Sort by key, join as key=value pairs
-  const str1 = Object.keys(allParams)
-    .sort()
-    .map((k) => `${k}=${allParams[k]}`)
-    .join("&")
-
-  // If body exists, compute MD5 (uppercase hex)
-  let str3: string
-  if (bodyString) {
-    const str2 = crypto.createHash("md5").update(bodyString).digest("hex").toUpperCase()
-    str3 = `${path}&${str1}&${str2}`
-  } else {
-    str3 = `${path}&${str1}`
-  }
-
-  // URL-encode
-  const encodedString = encodeURIComponent(str3)
-
-  // Step 2: Construct the key (app_secret + "&")
-  const signingKey = `${APP_SECRET}&`
-
-  // Step 3: Generate HMAC-SHA1 signature
-  const signature = crypto
-    .createHmac("sha1", signingKey)
-    .update(encodedString)
-    .digest("base64")
-
-  return signature
 }
 
-function buildHeaders(
-  path: string,
-  queryParams: Record<string, string> = {},
-  bodyString = ""
-): Record<string, string> {
-  const timestamp = generateTimestamp()
-  const nonce = generateNonce()
-  const signature = generateSignature(path, queryParams, bodyString, timestamp, nonce)
+/**
+ * Set tokens manually (e.g., from database or env vars)
+ */
+export function setTokens(access: string, refresh?: string) {
+  accessToken = access
+  if (refresh) refreshToken = refresh
+}
 
-  return {
-    "x-app-key": APP_KEY,
-    "x-timestamp": timestamp,
-    "x-signature": signature,
-    "x-signature-algorithm": "HMAC-SHA1",
-    "x-signature-version": "1.0",
-    "x-signature-nonce": nonce,
-    "x-version": "v2",
-    "Content-Type": "application/json",
-  }
+/**
+ * Check if we have a valid access token
+ */
+export function isAuthenticated(): boolean {
+  return !!accessToken
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -105,29 +143,35 @@ async function webullRequest<T>(
   queryParams: Record<string, string> = {},
   body?: object
 ): Promise<T> {
-  // Check if credentials are configured
-  if (!APP_KEY || !APP_SECRET) {
-    console.error("[Webull] Missing WEBULL_APP_KEY or WEBULL_APP_SECRET")
-    throw new Error("Webull credentials not configured")
+  if (!accessToken) {
+    throw new Error("Webull not authenticated - user must complete OAuth login")
   }
-
-  const bodyString = body ? JSON.stringify(body) : ""
-  const headers = buildHeaders(path, queryParams, bodyString)
 
   const queryString = Object.keys(queryParams).length
     ? "?" + new URLSearchParams(queryParams).toString()
     : ""
 
-  const url = `${BASE_URL}${path}${queryString}`
-  
-  console.log(`[v0] Webull request: ${method} ${url}`)
+  const url = `https://${API_HOST}${path}${queryString}`
 
   const res = await fetch(url, {
     method,
-    headers,
-    body: bodyString || undefined,
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: body ? JSON.stringify(body) : undefined,
     cache: "no-store",
   })
+
+  if (res.status === 401) {
+    // Token expired, try to refresh
+    const refreshed = await refreshAccessToken()
+    if (refreshed) {
+      // Retry the request
+      return webullRequest(method, path, queryParams, body)
+    }
+    throw new Error("Webull authentication expired - please reconnect")
+  }
 
   if (!res.ok) {
     const errBody = await res.text().catch(() => "")
@@ -135,9 +179,7 @@ async function webullRequest<T>(
     throw new Error(`Webull ${res.status}: ${errBody.slice(0, 300)}`)
   }
 
-  const data = await res.json() as T
-  console.log(`[v0] Webull response:`, JSON.stringify(data).slice(0, 200))
-  return data
+  return res.json() as Promise<T>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -154,7 +196,7 @@ export type WebullAccount = {
 export async function getAccounts(): Promise<WebullAccount[]> {
   const data = await webullRequest<{ data?: { account_list?: WebullAccount[] } }>(
     "GET",
-    "/openapi/account/v2/list"
+    "/api/trade/v2/account/list"
   )
   return data.data?.account_list ?? []
 }
@@ -176,7 +218,7 @@ export async function getAccountBalance(accountId: string): Promise<WebullBalanc
   try {
     const data = await webullRequest<{ data?: WebullBalance }>(
       "GET",
-      "/openapi/account/v2/balance",
+      "/api/trade/v2/account/balance",
       { account_id: accountId }
     )
     return data.data ?? null
@@ -196,15 +238,15 @@ export type WebullPosition = {
   unrealized_pnl: number
   unrealized_pnl_pct: number
   last_price: number
-  side: string // "LONG" | "SHORT"
-  asset_type: string // "STOCK" | "OPTION" | "CRYPTO"
+  side: string
+  asset_type: string
 }
 
 export async function getPositions(accountId: string): Promise<WebullPosition[]> {
   try {
     const data = await webullRequest<{ data?: { positions?: WebullPosition[] } }>(
       "GET",
-      "/openapi/account/v2/positions",
+      "/api/trade/v2/account/positions",
       { account_id: accountId }
     )
     return data.data?.positions ?? []
@@ -239,8 +281,8 @@ export async function getOpenOrders(accountId: string): Promise<WebullOrder[]> {
   try {
     const data = await webullRequest<{ data?: { orders?: WebullOrder[] } }>(
       "GET",
-      "/openapi/trade/v2/orders/open",
-      { account_id: accountId }
+      "/api/trade/v2/order/list",
+      { account_id: accountId, status: "PENDING" }
     )
     return data.data?.orders ?? []
   } catch (err) {
@@ -249,14 +291,11 @@ export async function getOpenOrders(accountId: string): Promise<WebullOrder[]> {
   }
 }
 
-export async function getOrderHistory(
-  accountId: string,
-  limit = 50
-): Promise<WebullOrder[]> {
+export async function getOrderHistory(accountId: string, limit = 50): Promise<WebullOrder[]> {
   try {
     const data = await webullRequest<{ data?: { orders?: WebullOrder[] } }>(
       "GET",
-      "/openapi/trade/v2/orders/history",
+      "/api/trade/v2/order/list",
       { account_id: accountId, page_size: String(limit) }
     )
     return data.data?.orders ?? []
@@ -281,7 +320,7 @@ export async function placeOrder(params: PlaceOrderParams): Promise<WebullOrder 
   try {
     const data = await webullRequest<{ data?: WebullOrder }>(
       "POST",
-      "/openapi/trade/v2/order/place",
+      "/api/trade/v2/order/place",
       {},
       params
     )
@@ -292,53 +331,18 @@ export async function placeOrder(params: PlaceOrderParams): Promise<WebullOrder 
   }
 }
 
-export async function cancelOrder(
-  accountId: string,
-  orderId: string
-): Promise<boolean> {
+export async function cancelOrder(accountId: string, orderId: string): Promise<boolean> {
   try {
     await webullRequest(
-      "DELETE",
-      "/openapi/trade/v2/order/cancel",
+      "POST",
+      "/api/trade/v2/order/cancel",
+      {},
       { account_id: accountId, order_id: orderId }
     )
     return true
   } catch (err) {
     console.error("[Webull] cancelOrder error:", err)
     return false
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Market Data APIs (if available)
-// ─────────────────────────────────────────────────────────────────────────────
-
-export type WebullQuote = {
-  symbol: string
-  last_price: number
-  bid: number
-  ask: number
-  bid_size: number
-  ask_size: number
-  volume: number
-  change: number
-  change_pct: number
-  high: number
-  low: number
-  open: number
-  prev_close: number
-}
-
-export async function getQuote(symbol: string): Promise<WebullQuote | null> {
-  try {
-    const data = await webullRequest<WebullQuote>(
-      "GET",
-      "/openapi/market/quote",
-      { symbol }
-    )
-    return data
-  } catch {
-    return null
   }
 }
 
@@ -371,7 +375,6 @@ export async function getAccountSummary(accountId: string): Promise<AccountSumma
   }
 }
 
-// Get first available account summary (convenience)
 export async function getPrimaryAccountSummary(): Promise<AccountSummary | null> {
   try {
     const accounts = await getAccounts()

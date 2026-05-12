@@ -1,9 +1,17 @@
 import { NextResponse } from "next/server"
-import { getAccounts, getAccountBalance, getPrimaryAccountSummary } from "@/lib/webull"
+import { isAuthenticated, getAccountBalance, getPrimaryAccountSummary } from "@/lib/webull"
 
 export const dynamic = "force-dynamic"
 
 export async function GET(req: Request) {
+  // Check if Webull OAuth is completed
+  if (!isAuthenticated()) {
+    return NextResponse.json({ 
+      error: "Webull not authenticated - complete OAuth login to connect your account",
+      needsAuth: true 
+    }, { status: 401 })
+  }
+
   const url = new URL(req.url)
   const accountId = url.searchParams.get("account_id")
 
@@ -23,8 +31,17 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "No accounts found" }, { status: 404 })
     }
     return NextResponse.json({ data: summary })
-  } catch (err) {
+  } catch (err: any) {
     console.error("[Webull Account]", err)
-    return NextResponse.json({ error: "Failed to fetch account" }, { status: 500 })
+    
+    // Check if it's an auth error
+    if (err.message?.includes("not authenticated") || err.message?.includes("OAuth")) {
+      return NextResponse.json({ 
+        error: err.message,
+        needsAuth: true 
+      }, { status: 401 })
+    }
+    
+    return NextResponse.json({ error: err.message || "Failed to fetch account" }, { status: 500 })
   }
 }
