@@ -125,7 +125,8 @@ async function createAccessToken(): Promise<string> {
   const body = JSON.stringify({})
   const headers = buildHeaders("POST", path, body)
 
-  const res = await fetch(`${AUTH_URL}${path}`, {
+  // Use TRADE_URL per user-provided endpoint: us-openapi-alb.uat.webullbroker.com
+  const res = await fetch(`${TRADE_URL}${path}`, {
     method: "POST",
     headers,
     body,
