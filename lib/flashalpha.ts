@@ -5,11 +5,11 @@
  */
 
 const BASE = "https://lab.flashalpha.com"
-const FA_KEY = process.env.FLASHALPHA_API_KEY ?? ""
+const FA_KEY = process.env.FLASHALPHA_API_KEY ?? process.env.FLASH_ALPHA_API_KEY ?? ""
 
 async function faFetch<T>(path: string, revalidate = 60): Promise<T | null> {
   if (!FA_KEY) {
-    console.warn("[FlashAlpha] FLASHALPHA_API_KEY not configured")
+    console.warn("[FlashAlpha] FLASHALPHA_API_KEY or FLASH_ALPHA_API_KEY not configured")
     return null
   }
   try {

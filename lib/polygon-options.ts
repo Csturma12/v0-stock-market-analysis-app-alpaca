@@ -4,8 +4,8 @@
 const BASE = "https://api.polygon.io"
 
 function key() {
-  const k = process.env.POLYGON_API_KEY
-  if (!k) throw new Error("POLYGON_API_KEY is not set")
+  const k = process.env.POLYGON_API_KEY ?? process.env.POLYGON_KEY
+  if (!k) throw new Error("POLYGON_API_KEY or POLYGON_KEY is not set")
   return k
 }
 

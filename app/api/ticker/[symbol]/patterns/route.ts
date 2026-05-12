@@ -3,7 +3,9 @@ import { createClient } from "@supabase/supabase-js"
 import { getBars } from "@/lib/polygon"
 import { detectPatterns, scorePatternForAutonomy } from "@/lib/pattern-detector"
 
-const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+function getSupabase() {
+  return createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+}
 
 export async function GET(req: NextRequest, context: { params: Promise<{ symbol: string }> }) {
   try {
@@ -34,7 +36,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ symbol:
 
     // Store patterns in DB
     if (scored.length > 0) {
-      const { error } = await supabase.from("stock_patterns").upsert(
+      const { error } = await getSupabase().from("stock_patterns").upsert(
         scored.map((p) => ({
           symbol: symbol.toUpperCase(),
           pattern_type: p.type,

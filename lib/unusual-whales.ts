@@ -1,8 +1,8 @@
 const BASE = "https://api.unusualwhales.com/api"
 
 function headers() {
-  const key = process.env.UNUSUAL_WHALES_API_KEY
-  if (!key) throw new Error("UNUSUAL_WHALES_API_KEY is not set")
+  const key = process.env.UNUSUAL_WHALES_API_KEY ?? process.env.UNUSUAL_WHALES_KEY
+  if (!key) throw new Error("UNUSUAL_WHALES_API_KEY or UNUSUAL_WHALES_KEY is not set")
   return {
     Authorization: `Bearer ${key}`,
     "UW-CLIENT-API-ID": "100001",

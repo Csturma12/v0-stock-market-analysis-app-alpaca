@@ -1,16 +1,18 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+function getSupabase() {
+  return createClient(
+    process.env.SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+}
 
 export const revalidate = 0
 
 export async function GET() {
   try {
-    const { data: trades, error } = await supabase
+    const { data: trades, error } = await getSupabase()
       .from("trades")
       .select("*")
       .order("opened_at", { ascending: false })

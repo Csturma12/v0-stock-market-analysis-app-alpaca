@@ -2,8 +2,8 @@
 const BASE = "https://finnhub.io/api/v1"
 
 function key() {
-  const k = process.env.FINNHUB_API_KEY
-  if (!k) throw new Error("FINNHUB_API_KEY is not set")
+  const k = process.env.FINNHUB_API_KEY ?? process.env.FINNHUB_KEY
+  if (!k) throw new Error("FINNHUB_API_KEY or FINNHUB_KEY is not set")
   return k
 }
 
