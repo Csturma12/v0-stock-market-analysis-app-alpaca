@@ -5,6 +5,10 @@ function headers() {
   // Accept either naming convention
   const id = process.env.ALPACA_API_KEY_ID ?? process.env.ALPACA_API_KEY
   const secret = process.env.ALPACA_API_SECRET_KEY ?? process.env.ALPACA_SECRET_API_KEY
+  
+  // Debug: log key status (not values)
+  console.log("[v0] Alpaca keys - ID exists:", !!id, "ID length:", id?.length, "Secret exists:", !!secret, "Secret length:", secret?.length)
+  
   if (!id || !secret) throw new Error("ALPACA credentials are not set")
   return {
     "APCA-API-KEY-ID": id,
