@@ -33,8 +33,18 @@ const APP_SECRET = process.env.WEBULL_APP_SECRET ?? ""
 let cachedToken: { 
   token: string
   refresh_token?: string
-  expires_at: number 
+  expires_at: number
+  status?: string
 } | null = null
+
+// Export token status for UI
+export function getTokenStatus(): { status: string; expiresAt: number } | null {
+  if (!cachedToken) return null
+  return { 
+    status: cachedToken.status || "UNKNOWN", 
+    expiresAt: cachedToken.expires_at 
+  }
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Signature Generation (HMAC-SHA1) - Per Webull Docs
@@ -235,17 +245,32 @@ async function createAccessToken(): Promise<string> {
   const status = data.data?.status ?? data.status
   if (status === "PENDING") {
     console.log("[v0] Webull token status: PENDING - requires SMS verification in Webull App")
+    // Still cache the token - it may become active after user verifies in app
   }
 
-  // Cache the token (expires is in seconds)
-  const expiresIn = typeof expires === "number" ? expires : 15 * 24 * 3600 // default 15 days
+  // Cache the token
+  // expires can be a Unix timestamp in ms (large number) or seconds from now (small number)
+  let expiresAt: number
+  if (typeof expires === "number" && expires > Date.now() / 2) {
+    // It's a Unix timestamp in milliseconds
+    expiresAt = expires
+  } else if (typeof expires === "number") {
+    // It's seconds from now
+    expiresAt = Date.now() + expires * 1000
+  } else {
+    // Default 15 days
+    expiresAt = Date.now() + 15 * 24 * 3600 * 1000
+  }
+
   cachedToken = {
     token,
     refresh_token: refreshToken,
-    expires_at: Date.now() + expiresIn * 1000,
+    expires_at: expiresAt,
+    status: status,
   }
 
-  console.log("[v0] Webull token cached, expires in", Math.round(expiresIn / 3600), "hours")
+  const hoursUntilExpiry = Math.round((expiresAt - Date.now()) / 3600000)
+  console.log("[v0] Webull token cached, status:", status, "expires in", hoursUntilExpiry, "hours")
   return token
 }
 

@@ -88,9 +88,38 @@ export function TradingAccount() {
 }
 
 function WebullSection({ data, error, webull }: { data: any; error: any; webull: any }) {
+  // Check for token pending verification
+  const tokenStatus = data?.tokenStatus
+  if (tokenStatus === "PENDING") {
+    return (
+      <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4">
+        <h4 className="mb-2 text-sm font-semibold">Webull Verification Required</h4>
+        <p className="text-xs text-muted-foreground">
+          Your Webull token is pending verification. Open the <strong>Webull App</strong> on your phone and complete the SMS/2FA verification to activate your API access.
+        </p>
+        <p className="mt-2 text-[10px] text-muted-foreground/70">
+          Once verified, refresh this page to see your account details.
+        </p>
+      </div>
+    )
+  }
+
   // Show error state if Webull not configured or API error
   if (error || data?.error) {
     const needsConfig = data?.needsConfig || data?.error?.includes("not configured")
+    const isPending = data?.error?.includes("PENDING")
+    
+    if (isPending) {
+      return (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4">
+          <h4 className="mb-2 text-sm font-semibold">Webull Verification Required</h4>
+          <p className="text-xs text-muted-foreground">
+            Open the <strong>Webull App</strong> and complete SMS verification to activate API access.
+          </p>
+        </div>
+      )
+    }
+    
     return (
       <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4">
         <h4 className="mb-2 text-sm font-semibold">
