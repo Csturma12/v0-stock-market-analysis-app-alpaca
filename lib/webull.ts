@@ -43,7 +43,10 @@ let cachedToken: {
   status?: string
 } | null = null
 
-// Initialize with manual token if provided
+// Check if Webull is configured
+const WEBULL_CONFIGURED = !!(APP_KEY && APP_SECRET)
+
+// Initialize with manual token if provided and not expired
 if (MANUAL_TOKEN && MANUAL_TOKEN_EXPIRES > Date.now()) {
   cachedToken = {
     token: MANUAL_TOKEN,
@@ -479,6 +482,16 @@ export type WebullAccount = {
 }
 
 export async function getAccounts(): Promise<WebullAccount[]> {
+  // Return empty if Webull not configured or token expired
+  if (!WEBULL_CONFIGURED && !MANUAL_TOKEN) {
+    console.log("[Webull] Not configured - skipping")
+    return []
+  }
+  if (MANUAL_TOKEN && MANUAL_TOKEN_EXPIRES <= Date.now()) {
+    console.log("[Webull] Manual token expired - skipping")
+    return []
+  }
+
   // Try broker API first (us-broker-api host)
   try {
     const accessToken = await createAccessToken()
@@ -537,6 +550,10 @@ export type WebullBalance = {
 }
 
 export async function getAccountBalance(accountId: string): Promise<WebullBalance | null> {
+  // Return null if Webull not configured or token expired
+  if (!WEBULL_CONFIGURED && !MANUAL_TOKEN) return null
+  if (MANUAL_TOKEN && MANUAL_TOKEN_EXPIRES <= Date.now()) return null
+
   try {
     const data = await webullRequest<{ data?: WebullBalance }>(
       "GET",
