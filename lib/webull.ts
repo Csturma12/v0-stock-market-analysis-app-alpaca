@@ -152,11 +152,16 @@ async function createAccessToken(): Promise<string> {
 
   // Return cached token if still valid (with 5 min buffer)
   if (cachedToken && cachedToken.expires_at > Date.now() + 300000) {
-    return cachedToken.token
+    // Verify token is still valid with check endpoint
+    const isValid = await checkTokenValid(cachedToken.token)
+    if (isValid) {
+      return cachedToken.token
+    }
+    console.log("[v0] Webull: Cached token invalid, refreshing...")
   }
 
-  // Try to refresh if we have a refresh token and token is expiring soon
-  if (cachedToken?.refresh_token && cachedToken.expires_at > Date.now()) {
+  // Try to refresh if we have a refresh token
+  if (cachedToken?.refresh_token) {
     const refreshed = await refreshAccessToken()
     if (refreshed) return refreshed
   }
@@ -209,6 +214,38 @@ async function createAccessToken(): Promise<string> {
 
   console.log("[v0] Webull token cached, expires in", Math.round(expiresIn / 3600), "hours")
   return token
+}
+
+/**
+ * Check if token is still valid
+ * POST /openapi/auth/token/check
+ */
+async function checkTokenValid(token: string): Promise<boolean> {
+  const path = "/openapi/auth/token/check"
+  const body = JSON.stringify({ token })
+  const host = new URL(TRADE_URL).host
+  const headers = buildHeaders(path, {}, body, host)
+
+  try {
+    const res = await fetch(`${TRADE_URL}${path}`, {
+      method: "POST",
+      headers,
+      body,
+    })
+
+    if (!res.ok) return false
+
+    const data = await res.json()
+    // Check if token is valid (status could be "ACTIVE", "VALID", etc.)
+    const status = data.data?.status ?? data.status
+    const isValid = status === "ACTIVE" || status === "VALID" || data.data?.valid === true
+    
+    console.log("[v0] Webull token check:", status, "valid:", isValid)
+    return isValid
+  } catch (err) {
+    console.error("[v0] Webull token check error:", err)
+    return false
+  }
 }
 
 /**
