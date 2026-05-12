@@ -1,15 +1,22 @@
 import { NextResponse } from "next/server"
-import { getAccounts, getAccountBalance, getPrimaryAccountSummary } from "@/lib/webull"
+import { isConfigured, getAccountBalance, getPrimaryAccountSummary, getTokenStatus } from "@/lib/webull"
 
 export const dynamic = "force-dynamic"
 
 export async function GET(req: Request) {
+  // Check if Webull credentials are configured
+  if (!isConfigured()) {
+    return NextResponse.json({ 
+      error: "Webull not configured - add WEBULL_APP_KEY and WEBULL_APP_SECRET",
+      needsConfig: true 
+    }, { status: 401 })
+  }
+
   const url = new URL(req.url)
   const accountId = url.searchParams.get("account_id")
 
   try {
     if (accountId) {
-      // Get specific account balance
       const balance = await getAccountBalance(accountId)
       if (!balance) {
         return NextResponse.json({ error: "Account not found" }, { status: 404 })
@@ -17,14 +24,39 @@ export async function GET(req: Request) {
       return NextResponse.json({ data: balance })
     }
 
-    // Get primary account summary (first account with balance + positions)
+    // Get primary account summary
     const summary = await getPrimaryAccountSummary()
+    
+    // Include token status in response
+    const tokenStatus = getTokenStatus()
+    
     if (!summary) {
-      return NextResponse.json({ error: "No accounts found" }, { status: 404 })
+      // If no accounts but token is pending, show that status
+      if (tokenStatus?.status === "PENDING") {
+        return NextResponse.json({ 
+          error: "Token PENDING - verify in Webull App",
+          tokenStatus: "PENDING"
+        }, { status: 202 })
+      }
+      return NextResponse.json({ error: "No Webull accounts found" }, { status: 404 })
     }
-    return NextResponse.json({ data: summary })
-  } catch (err) {
+    
+    return NextResponse.json({ 
+      data: summary,
+      tokenStatus: tokenStatus?.status 
+    })
+  } catch (err: any) {
     console.error("[Webull Account]", err)
-    return NextResponse.json({ error: "Failed to fetch account" }, { status: 500 })
+    
+    // Check if error is due to pending token
+    const tokenStatus = getTokenStatus()
+    if (tokenStatus?.status === "PENDING") {
+      return NextResponse.json({ 
+        error: "Token PENDING - verify in Webull App",
+        tokenStatus: "PENDING"
+      }, { status: 202 })
+    }
+    
+    return NextResponse.json({ error: err.message || "Failed to fetch account" }, { status: 500 })
   }
 }
