@@ -1,5 +1,5 @@
 import { MarketStatusBadge } from "@/components/market-status-badge"
-import { HomeAccountBar } from "@/components/home-account-bar"
+import { DualAccountWidget } from "@/components/dual-account-widget"
 import { HomeSectorPills } from "@/components/home-sector-pills"
 import { HomeMarketNews } from "@/components/home-market-news"
 import { QuickTradeIdea } from "@/components/quick-trade-idea"
@@ -36,10 +36,10 @@ export default function HomePage() {
       defaultLayout: { x: 0, y: 14, w: 6, h: 14, minW: 4, minH: 8 },
     },
     {
-      id: "account",
-      title: "Account Overview",
-      content: <HomeAccountBar />,
-      defaultLayout: { x: 6, y: 14, w: 3, h: 5, minW: 2, minH: 4 },
+      id: "accounts",
+      title: "Trading Accounts",
+      content: <DualAccountWidget />,
+      defaultLayout: { x: 6, y: 14, w: 6, h: 10, minW: 4, minH: 8 },
     },
     {
       id: "quick-trade",
@@ -105,7 +105,7 @@ export default function HomePage() {
 
       {/* Adjustable widget grid */}
       <div className="mx-auto max-w-[1600px] px-4 py-3">
-        <AnalysisLayout widgets={widgets} storageKey="home:grid:v7" />
+        <AnalysisLayout widgets={widgets} storageKey="home:grid:v8" />
       </div>
     </main>
   )

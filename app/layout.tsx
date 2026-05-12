@@ -5,6 +5,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next"
 import { Toaster } from "@/components/ui/sonner"
 import { SiteNav } from "@/components/site-nav"
 import { StagedTradeProvider } from "@/lib/staged-trade-context"
+import { TradingProvider } from "@/lib/trading-context"
 import "./globals.css"
 
 const _geist = Geist({ subsets: ["latin"] })
@@ -25,17 +26,19 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark bg-background">
       <body className="font-sans antialiased min-h-screen bg-background text-foreground">
-        <StagedTradeProvider>
-          <SiteNav />
-          <main className="min-h-[calc(100vh-3.5rem)]">{children}</main>
-          <Toaster theme="dark" />
-          {process.env.NODE_ENV === "production" && (
-            <>
-              <Analytics />
-              <SpeedInsights />
-            </>
-          )}
-        </StagedTradeProvider>
+        <TradingProvider>
+          <StagedTradeProvider>
+            <SiteNav />
+            <main className="min-h-[calc(100vh-3.5rem)]">{children}</main>
+            <Toaster theme="dark" />
+            {process.env.NODE_ENV === "production" && (
+              <>
+                <Analytics />
+                <SpeedInsights />
+              </>
+            )}
+          </StagedTradeProvider>
+        </TradingProvider>
       </body>
     </html>
   )

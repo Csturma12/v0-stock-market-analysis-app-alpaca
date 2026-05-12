@@ -1,12 +1,13 @@
 "use client"
 
-import { useState, useRef, useCallback } from "react"
+import { useState, useRef } from "react"
 import { cn } from "@/lib/utils"
 import {
   TrendingUp, TrendingDown, Loader2, CheckCircle2,
-  AlertCircle, ChevronDown, DollarSign, Hash,
+  AlertCircle, ChevronDown, DollarSign, Hash, TestTube, Zap,
 } from "lucide-react"
 import useSWR from "swr"
+import { useTradingMode } from "@/lib/trading-context"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
@@ -25,6 +26,7 @@ type OrderResult = {
 }
 
 export function QuickTrade() {
+  const { mode, isPaper, isLive, broker, toggleMode } = useTradingMode()
   const [ticker, setTicker]           = useState("")
   const [side, setSide]               = useState<Side>("buy")
   const [orderType, setOrderType]     = useState<OrderType>("market")
@@ -85,30 +87,49 @@ export function QuickTrade() {
     setLoading(true)
     setError(null)
     try {
+      // Different endpoint based on trading mode
+      const endpoint = isPaper ? "/api/trading/order" : "/api/webull/orders"
+      
       const body: Record<string, unknown> = {
         symbol: sym,
-        side,
+        side: side.toUpperCase(),
         type: orderType,
         time_in_force: "day",
         source: "quick-trade",
       }
-      if (sizeMode === "shares") {
-        body.qty = parseFloat(sizeValue)
+      
+      if (isPaper) {
+        // Alpaca format
+        body.side = side
+        body.type = orderType
+        if (sizeMode === "shares") {
+          body.qty = parseFloat(sizeValue)
+        } else {
+          body.notional = parseFloat(sizeValue)
+        }
+        if (orderType === "limit" && limitPrice) {
+          body.limit_price = parseFloat(limitPrice)
+        }
       } else {
-        body.notional = parseFloat(sizeValue)
-      }
-      if (orderType === "limit" && limitPrice) {
-        body.limit_price = parseFloat(limitPrice)
+        // Webull format
+        body.order_type = orderType.toUpperCase()
+        body.time_in_force = "DAY"
+        body.qty = sizeMode === "shares" 
+          ? parseFloat(sizeValue)
+          : Math.floor(parseFloat(sizeValue) / (livePrice || 1))
+        if (orderType === "limit" && limitPrice) {
+          body.limit_price = parseFloat(limitPrice)
+        }
       }
 
-      const res = await fetch("/api/trading/order", {
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body),
       })
       const data = await res.json()
       if (data.error) throw new Error(data.error)
-      setResult(data.order)
+      setResult(isPaper ? data.order : data.data)
       setConfirming(false)
     } catch (e: any) {
       setError(e.message || "Order failed")
@@ -165,8 +186,13 @@ export function QuickTrade() {
             {estimatedShares != null && sizeMode === "notional" && <Row label="Est. Shares" value={`~${estimatedShares.toFixed(4)}`} />}
             {livePrice && <Row label="Live Price" value={`$${livePrice.toFixed(2)}`} />}
           </div>
-          <p className="mt-2 font-mono text-[9px] text-amber-400/80">
-            This is a paper trading account. No real money at risk.
+          <p className={cn(
+            "mt-2 font-mono text-[9px]",
+            isPaper ? "text-amber-400/80" : "text-red-400"
+          )}>
+            {isPaper 
+              ? "This is a paper trading account. No real money at risk."
+              : "WARNING: This is a LIVE order. Real money will be used!"}
           </p>
         </div>
         <div className="flex gap-2">
@@ -197,6 +223,25 @@ export function QuickTrade() {
   // ---- Main form ----
   return (
     <div className="flex h-full flex-col overflow-hidden p-2 gap-2">
+      {/* Trading mode toggle */}
+      <div className="flex items-center justify-between">
+        <button
+          onClick={toggleMode}
+          className={cn(
+            "flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[9px] font-semibold uppercase transition-all",
+            isPaper
+              ? "bg-amber-500/10 text-amber-500 border border-amber-500/30"
+              : "bg-green-500/10 text-green-500 border border-green-500/30"
+          )}
+        >
+          {isPaper ? <TestTube className="h-2.5 w-2.5" /> : <Zap className="h-2.5 w-2.5" />}
+          {isPaper ? "Paper (Alpaca)" : "Live (Webull)"}
+        </button>
+        {isLive && (
+          <span className="text-[9px] text-red-400 font-mono">REAL $</span>
+        )}
+      </div>
+
       {/* Ticker + live price */}
       <div className="flex items-center gap-2">
         <input

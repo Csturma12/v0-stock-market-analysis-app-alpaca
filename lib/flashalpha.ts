@@ -4,10 +4,10 @@
  * GEX, DEX, VEX, IV Rank, Vol Surface, and more
  */
 
-const BASE = "https://api.flashalpha.com/v1"
+const BASE = "https://lab.flashalpha.com"
 const FA_KEY = process.env.FLASHALPHA_API_KEY ?? ""
 
-async function faFetch<T>(path: string): Promise<T | null> {
+async function faFetch<T>(path: string, revalidate = 60): Promise<T | null> {
   if (!FA_KEY) {
     console.warn("[FlashAlpha] FLASHALPHA_API_KEY not configured")
     return null
@@ -15,10 +15,10 @@ async function faFetch<T>(path: string): Promise<T | null> {
   try {
     const res = await fetch(`${BASE}${path}`, {
       headers: {
-        "x-api-key": FA_KEY,
+        "X-Api-Key": FA_KEY,
         Accept: "application/json",
       },
-      next: { revalidate: 60 },
+      next: { revalidate },
     })
     if (!res.ok) {
       const body = await res.text().catch(() => "")
@@ -120,28 +120,253 @@ export type FAFullMetrics = {
 // API Calls
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function getGEX(symbol: string): Promise<FAGreekExposure | null> {
-  const sym = symbol.toUpperCase()
-  const res = await faFetch<{ data: FAGreekExposure }>(`/gex/${sym}`)
-  return res?.data ?? null
+// ─────────────────────────────────────────────────────────────────────────────
+// Per-Strike Exposure Types (from docs)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type FAStrikeData = {
+  strike: number
+  call_gex: number
+  put_gex: number
+  net_gex: number
+  call_oi: number
+  put_oi: number
+  call_volume: number
+  put_volume: number
+  call_oi_change: number
+  put_oi_change: number
 }
 
-export async function getIVMetrics(symbol: string): Promise<FAIVMetrics | null> {
+export type FAGEXResponse = {
+  symbol: string
+  underlying_price: number
+  as_of: string
+  gamma_flip: number
+  net_gex: number
+  net_gex_label: "positive" | "negative"
+  strikes: FAStrikeData[]
+}
+
+export type FADEXResponse = {
+  symbol: string
+  underlying_price: number
+  as_of: string
+  net_dex: number
+  strikes: Array<{
+    strike: number
+    call_dex: number
+    put_dex: number
+    net_dex: number
+  }>
+}
+
+export type FAVEXResponse = {
+  symbol: string
+  underlying_price: number
+  as_of: string
+  net_vex: number
+  strikes: Array<{
+    strike: number
+    call_vex: number
+    put_vex: number
+    net_vex: number
+  }>
+}
+
+export type FACHEXResponse = {
+  symbol: string
+  underlying_price: number
+  as_of: string
+  net_chex: number
+  strikes: Array<{
+    strike: number
+    call_chex: number
+    put_chex: number
+    net_chex: number
+  }>
+}
+
+export type FALevelsResponse = {
+  symbol: string
+  underlying_price: number
+  as_of: string
+  gamma_flip: number
+  call_wall: number
+  put_wall: number
+  max_gamma_strike: number
+  zero_dte_magnet: number | null
+}
+
+export type FASummaryResponse = {
+  symbol: string
+  underlying_price: number
+  as_of: string
+  gamma_flip: number
+  net_gex: number
+  net_dex: number
+  net_vex: number
+  net_chex: number
+  regime: "positive_gamma" | "negative_gamma" | "neutral"
+  regime_description: string
+  call_wall: number
+  put_wall: number
+}
+
+export type FANarrativeResponse = {
+  symbol: string
+  as_of: string
+  narrative: string
+}
+
+export type FAMaxPainResponse = {
+  symbol: string
+  underlying_price: number
+  as_of: string
+  max_pain: number
+  pin_probability: number
+  expirations: Array<{
+    expiration: string
+    max_pain: number
+    call_oi: number
+    put_oi: number
+  }>
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// API Calls - Per-Strike Exposure
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function getGEXByStrike(symbol: string, expiration?: string): Promise<FAGEXResponse | null> {
   const sym = symbol.toUpperCase()
-  const res = await faFetch<{ data: FAIVMetrics }>(`/iv/${sym}`)
-  return res?.data ?? null
+  const path = expiration 
+    ? `/v1/exposure/gex/${sym}?expiration=${expiration}`
+    : `/v1/exposure/gex/${sym}`
+  return faFetch<FAGEXResponse>(path)
+}
+
+export async function getDEXByStrike(symbol: string): Promise<FADEXResponse | null> {
+  return faFetch<FADEXResponse>(`/v1/exposure/dex/${symbol.toUpperCase()}`)
+}
+
+export async function getVEXByStrike(symbol: string): Promise<FAVEXResponse | null> {
+  return faFetch<FAVEXResponse>(`/v1/exposure/vex/${symbol.toUpperCase()}`)
+}
+
+export async function getCHEXByStrike(symbol: string): Promise<FACHEXResponse | null> {
+  return faFetch<FACHEXResponse>(`/v1/exposure/chex/${symbol.toUpperCase()}`)
+}
+
+export async function getExposureLevels(symbol: string): Promise<FALevelsResponse | null> {
+  return faFetch<FALevelsResponse>(`/v1/exposure/levels/${symbol.toUpperCase()}`)
+}
+
+export async function getExposureSummary(symbol: string): Promise<FASummaryResponse | null> {
+  return faFetch<FASummaryResponse>(`/v1/exposure/summary/${symbol.toUpperCase()}`)
+}
+
+export async function getExposureNarrative(symbol: string): Promise<FANarrativeResponse | null> {
+  return faFetch<FANarrativeResponse>(`/v1/exposure/narrative/${symbol.toUpperCase()}`)
+}
+
+export async function getMaxPain(symbol: string): Promise<FAMaxPainResponse | null> {
+  return faFetch<FAMaxPainResponse>(`/v1/maxpain/${symbol.toUpperCase()}`)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Market Data
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type FAStockQuote = {
+  symbol: string
+  bid: number
+  ask: number
+  mid: number
+  last: number
+}
+
+export type FAOptionQuote = {
+  symbol: string
+  chain: Array<{
+    expiration: string
+    strikes: Array<{
+      strike: number
+      call: { bid: number; ask: number; iv: number; delta: number; gamma: number; theta: number; vega: number; oi: number; volume: number } | null
+      put: { bid: number; ask: number; iv: number; delta: number; gamma: number; theta: number; vega: number; oi: number; volume: number } | null
+    }>
+  }>
+}
+
+export async function getStockQuote(symbol: string): Promise<FAStockQuote | null> {
+  return faFetch<FAStockQuote>(`/stockquote/${symbol.toUpperCase()}`)
+}
+
+export async function getOptionChain(symbol: string): Promise<FAOptionQuote | null> {
+  return faFetch<FAOptionQuote>(`/optionquote/${symbol.toUpperCase()}`)
 }
 
 export async function getVolSurface(symbol: string): Promise<FAVolSurface | null> {
-  const sym = symbol.toUpperCase()
-  const res = await faFetch<{ data: FAVolSurface }>(`/surface/${sym}`)
-  return res?.data ?? null
+  return faFetch<FAVolSurface>(`/v1/surface/${symbol.toUpperCase()}`)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Legacy aliases (for backwards compatibility)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function getGEX(symbol: string): Promise<FAGreekExposure | null> {
+  const gex = await getGEXByStrike(symbol)
+  if (!gex) return null
+  return {
+    symbol: gex.symbol,
+    date: gex.as_of,
+    gex: gex.net_gex,
+    call_gex: gex.strikes.reduce((sum, s) => sum + s.call_gex, 0),
+    put_gex: gex.strikes.reduce((sum, s) => sum + s.put_gex, 0),
+    gex_flip: gex.gamma_flip,
+    dex: null,
+    call_dex: null,
+    put_dex: null,
+    vex: null,
+  }
+}
+
+export async function getIVMetrics(symbol: string): Promise<FAIVMetrics | null> {
+  // Use the summary endpoint to get IV-related data
+  const summary = await getExposureSummary(symbol)
+  if (!summary) return null
+  return {
+    symbol: summary.symbol,
+    date: summary.as_of,
+    iv_rank: null,
+    iv_percentile: null,
+    iv_current: null,
+    iv_30d_avg: null,
+    iv_hv_spread: null,
+    term_structure: [],
+  }
 }
 
 export async function getFlowSummary(symbol: string): Promise<FAFlowSummary | null> {
-  const sym = symbol.toUpperCase()
-  const res = await faFetch<{ data: FAFlowSummary }>(`/flow/${sym}`)
-  return res?.data ?? null
+  const gex = await getGEXByStrike(symbol)
+  if (!gex) return null
+  
+  const callVol = gex.strikes.reduce((sum, s) => sum + s.call_volume, 0)
+  const putVol = gex.strikes.reduce((sum, s) => sum + s.put_volume, 0)
+  const callOi = gex.strikes.reduce((sum, s) => sum + s.call_oi, 0)
+  const putOi = gex.strikes.reduce((sum, s) => sum + s.put_oi, 0)
+  
+  return {
+    symbol: gex.symbol,
+    date: gex.as_of,
+    call_volume: callVol,
+    put_volume: putVol,
+    call_oi: callOi,
+    put_oi: putOi,
+    put_call_ratio: callVol > 0 ? putVol / callVol : 0,
+    call_premium: 0,
+    put_premium: 0,
+    unusual_calls: [],
+    unusual_puts: [],
+  }
 }
 
 /** Fetch all FlashAlpha metrics for a ticker in one parallel call */
@@ -152,6 +377,20 @@ export async function getFullMetrics(symbol: string): Promise<FAFullMetrics> {
     getFlowSummary(symbol),
   ])
   return { gex, iv, flow }
+}
+
+/** Fetch comprehensive exposure data in parallel */
+export async function getFullExposure(symbol: string) {
+  const [gex, dex, vex, chex, levels, summary, maxPain] = await Promise.all([
+    getGEXByStrike(symbol),
+    getDEXByStrike(symbol),
+    getVEXByStrike(symbol),
+    getCHEXByStrike(symbol),
+    getExposureLevels(symbol),
+    getExposureSummary(symbol),
+    getMaxPain(symbol),
+  ])
+  return { gex, dex, vex, chex, levels, summary, maxPain }
 }
 
 export function isConfigured(): boolean {
