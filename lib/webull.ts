@@ -78,8 +78,23 @@ function hasEnv(name: string) {
   return Boolean(process.env[name])
 }
 
+function webullTokenExpiresAt() {
+  const raw = process.env.WEBULL_TOKEN_EXPIRES
+  if (!raw) return 0
+  const value = Number.parseInt(raw, 10)
+  return Number.isFinite(value) ? value : 0
+}
+
+function hasUsableWebullToken() {
+  const token = process.env.WEBULL_ACCESS_TOKEN
+  if (!token) return false
+
+  const expiresAt = webullTokenExpiresAt()
+  return expiresAt === 0 || expiresAt > Date.now()
+}
+
 export function hasWebullConfig() {
-  return hasEnv("WEBULL_APP_KEY") && hasEnv("WEBULL_APP_SECRET") && hasEnv("WEBULL_ACCESS_TOKEN")
+  return hasEnv("WEBULL_APP_KEY") && hasEnv("WEBULL_APP_SECRET") && hasUsableWebullToken()
 }
 
 export function isConfigured() {
@@ -92,7 +107,13 @@ export function isAuthenticated() {
 
 export function getTokenStatus() {
   const token = process.env.WEBULL_ACCESS_TOKEN
-  return token ? { status: "NORMAL", expiresAt: 0 } : null
+  if (!token) return null
+
+  const expiresAt = webullTokenExpiresAt()
+  return {
+    status: expiresAt > 0 && expiresAt <= Date.now() ? "EXPIRED" : "NORMAL",
+    expiresAt,
+  }
 }
 
 export function getAuthorizationUrl(_redirectUri: string, _state: string) {
@@ -174,6 +195,10 @@ async function webullFetch<T>({
   query?: Record<string, string>
   body?: unknown
 }) {
+  if (!hasWebullConfig()) {
+    throw new Error("Webull credentials are missing or the configured access token is expired")
+  }
+
   const host = webullHost()
   const appKey = requiredEnv("WEBULL_APP_KEY")
   const appSecret = requiredEnv("WEBULL_APP_SECRET")
@@ -227,7 +252,14 @@ async function webullFetch<T>({
 }
 
 export async function getWebullAccounts() {
-  return webullFetch<WebullAccount[]>({ method: "GET", path: ACCOUNT_LIST_PATH })
+  if (!hasWebullConfig()) return []
+
+  try {
+    return await webullFetch<WebullAccount[]>({ method: "GET", path: ACCOUNT_LIST_PATH })
+  } catch (error) {
+    console.error("[Webull] getWebullAccounts error:", error)
+    return []
+  }
 }
 
 export const getAccounts = getWebullAccounts
@@ -251,26 +283,40 @@ export async function getSelectedWebullAccount() {
 }
 
 export async function getWebullBalance(accountId: string) {
-  return webullFetch<WebullBalance>({
-    method: "GET",
-    path: BALANCE_PATH,
-    query: {
-      account_id: accountId,
-      total_asset_currency: "USD",
-    },
-  })
+  if (!hasWebullConfig()) return null
+
+  try {
+    return await webullFetch<WebullBalance>({
+      method: "GET",
+      path: BALANCE_PATH,
+      query: {
+        account_id: accountId,
+        total_asset_currency: "USD",
+      },
+    })
+  } catch (error) {
+    console.error("[Webull] getWebullBalance error:", error)
+    return null
+  }
 }
 
 export const getAccountBalance = getWebullBalance
 
 export async function getWebullPositions(accountId: string) {
-  return webullFetch<WebullPosition[]>({
-    method: "GET",
-    path: POSITIONS_PATH,
-    query: {
-      account_id: accountId,
-    },
-  })
+  if (!hasWebullConfig()) return []
+
+  try {
+    return await webullFetch<WebullPosition[]>({
+      method: "GET",
+      path: POSITIONS_PATH,
+      query: {
+        account_id: accountId,
+      },
+    })
+  } catch (error) {
+    console.error("[Webull] getWebullPositions error:", error)
+    return []
+  }
 }
 
 export const getPositions = getWebullPositions

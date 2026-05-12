@@ -185,7 +185,14 @@ export function AnalysisLayout({
     [widgets],
   )
 
-  const [layout, setLayout] = useState<Layout[]>(defaults)
+  // Initialize with defaults immediately, not empty array
+  const [layout, setLayout] = useState<Layout[]>(() => 
+    widgets.map((w) => ({
+      i: w.id,
+      ...w.defaultLayout,
+      resizeHandles: ALL_HANDLES,
+    }))
+  )
   const [hiddenWidgets, setHiddenWidgets] = useState<Set<string>>(new Set())
   const [hydrated, setHydrated] = useState(false)
   const [locked, setLocked] = useState(true) // Default to locked
@@ -212,6 +219,9 @@ export function AnalysisLayout({
           }
         })
         setLayout(merged)
+      } else {
+        // No saved layout - use defaults from widgets
+        setLayout(defaults)
       }
 
       // Load saved layouts list
@@ -633,17 +643,24 @@ export function AnalysisLayout({
       >
         {widgets
           .filter((w) => !hiddenWidgets.has(w.id))
-          .map((w) => (
-            <div key={w.id} className="overflow-hidden">
-              <WidgetFrame
-                title={w.title}
-                showClose={!locked}
-                onClose={() => handleHideWidget(w.id)}
+          .map((w) => {
+            const l = layout.find((lay) => lay.i === w.id) ?? w.defaultLayout
+            return (
+              <div 
+                key={w.id} 
+                className="overflow-hidden"
+                data-grid={{ x: l.x, y: l.y, w: l.w, h: l.h }}
               >
-                {w.content}
-              </WidgetFrame>
-            </div>
-          ))}
+                <WidgetFrame
+                  title={w.title}
+                  showClose={!locked}
+                  onClose={() => handleHideWidget(w.id)}
+                >
+                  {w.content}
+                </WidgetFrame>
+              </div>
+            )
+          })}
       </ReactGridLayout>
 
       {/* Save Layout Dialog */}
