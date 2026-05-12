@@ -10,13 +10,14 @@
  */
 
 // Environment: UAT (test) or Production
-const IS_UAT = process.env.WEBULL_ENV === "uat" || !process.env.WEBULL_ENV
-const OAUTH_HOST = IS_UAT
-  ? "us-oauth-open-api.uat.webullbroker.com"
-  : "us-oauth-open-api.webullbroker.com"
-const API_HOST = IS_UAT
-  ? "us-trade-open-api.uat.webullbroker.com"
-  : "us-trade-open-api.webullbroker.com"
+const IS_UAT = process.env.WEBULL_ENV !== "production"
+const BASE_HOST = IS_UAT
+  ? "us-openapi-alb.uat.webullbroker.com"
+  : "us-openapi.webullbroker.com"
+
+// All API calls go through the same host
+const OAUTH_HOST = BASE_HOST
+const API_HOST = BASE_HOST
 
 const CLIENT_ID = process.env.WEBULL_APP_KEY ?? ""
 const CLIENT_SECRET = process.env.WEBULL_APP_SECRET ?? ""
@@ -41,7 +42,7 @@ export function getAuthorizationUrl(redirectUri: string, state?: string): string
     redirect_uri: redirectUri,
     state: state ?? crypto.randomUUID(),
   })
-  return `https://${OAUTH_HOST}/oauth2/authorize?${params.toString()}`
+  return `https://${OAUTH_HOST}/oauth2/authenticate/login?${params.toString()}`
 }
 
 /**
@@ -53,18 +54,19 @@ export async function exchangeCodeForToken(
   redirectUri: string
 ): Promise<{ access_token: string; refresh_token: string; expires_in: number } | null> {
   try {
-    const res = await fetch(`https://${OAUTH_HOST}/oauth2/token`, {
+    // Use the token/create endpoint per Webull docs
+    const res = await fetch(`https://${OAUTH_HOST}/openapi/auth/token/create`, {
       method: "POST",
       headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
+        "Content-Type": "application/json",
       },
-      body: new URLSearchParams({
+      body: JSON.stringify({
         grant_type: "authorization_code",
         code,
         client_id: CLIENT_ID,
         client_secret: CLIENT_SECRET,
         redirect_uri: redirectUri,
-      }).toString(),
+      }),
     })
 
     if (!res.ok) {
@@ -90,17 +92,17 @@ export async function refreshAccessToken(): Promise<boolean> {
   if (!refreshToken) return false
 
   try {
-    const res = await fetch(`https://${OAUTH_HOST}/oauth2/token`, {
+    const res = await fetch(`https://${OAUTH_HOST}/openapi/auth/token/refresh`, {
       method: "POST",
       headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
+        "Content-Type": "application/json",
       },
-      body: new URLSearchParams({
+      body: JSON.stringify({
         grant_type: "refresh_token",
         refresh_token: refreshToken,
         client_id: CLIENT_ID,
         client_secret: CLIENT_SECRET,
-      }).toString(),
+      }),
     })
 
     if (!res.ok) {
