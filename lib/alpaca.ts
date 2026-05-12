@@ -1,10 +1,21 @@
 // Alpaca paper trading client. Hardcoded to paper endpoint so we can never hit live by mistake.
 const BASE = "https://paper-api.alpaca.markets"
 
+// Strip shell escape sequences and quotes that may have been pasted accidentally
+function sanitizeKey(val: string | undefined): string {
+  if (!val) return ""
+  // Remove $' prefix, trailing ', and any stray quotes
+  return val.replace(/^\$?'|'$/g, "").replace(/['"]/g, "").trim()
+}
+
 function headers() {
   // Accept either naming convention
-  const id = process.env.ALPACA_API_KEY_ID ?? process.env.ALPACA_API_KEY
-  const secret = process.env.ALPACA_API_SECRET_KEY ?? process.env.ALPACA_SECRET_API_KEY
+  const rawId = process.env.ALPACA_API_KEY_ID ?? process.env.ALPACA_API_KEY
+  const rawSecret = process.env.ALPACA_API_SECRET_KEY ?? process.env.ALPACA_SECRET_API_KEY
+  
+  const id = sanitizeKey(rawId)
+  const secret = sanitizeKey(rawSecret)
+  
   if (!id || !secret) throw new Error("ALPACA credentials are not set")
   return {
     "APCA-API-KEY-ID": id,
