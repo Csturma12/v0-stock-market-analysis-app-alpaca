@@ -7,10 +7,23 @@ import {
   ChevronDown, TrendingUp, Minus, TrendingDown,
   Brain, Building2, Shield, Flame, Stethoscope,
   Landmark, ShoppingCart, CircuitBoard, Scale, Globe,
+  Droplets, Gem, Wheat, Fuel, Pickaxe,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { SECTORS } from "@/lib/constants"
 import { THEMES } from "@/lib/themes"
+
+// Commodities with their ETF proxies
+const COMMODITIES = [
+  { id: "gold", name: "Gold", icon: Gem, tickers: ["GLD", "IAU", "GOLD", "NEM", "RGLD", "FNV"] },
+  { id: "silver", name: "Silver", icon: Gem, tickers: ["SLV", "PSLV", "AG", "WPM", "PAAS", "HL"] },
+  { id: "oil", name: "Crude Oil", icon: Fuel, tickers: ["USO", "XLE", "OXY", "CVX", "XOM", "COP"] },
+  { id: "natgas", name: "Natural Gas", icon: Flame, tickers: ["UNG", "BOIL", "AR", "EQT", "SWN", "RRC"] },
+  { id: "copper", name: "Copper", icon: Pickaxe, tickers: ["COPX", "FCX", "SCCO", "TECK", "RIO", "BHP"] },
+  { id: "agriculture", name: "Agriculture", icon: Wheat, tickers: ["DBA", "WEAT", "CORN", "SOYB", "ADM", "BG"] },
+  { id: "water", name: "Water", icon: Droplets, tickers: ["PHO", "FIW", "AWK", "XYL", "WTR", "WTRG"] },
+  { id: "uranium", name: "Uranium", icon: Flame, tickers: ["URA", "URNM", "CCJ", "DNN", "UEC", "NXE"] },
+]
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
@@ -196,11 +209,12 @@ function CollapsibleGroup({
 }
 
 export function HomeSectorPills() {
-  // Collect all tickers from sectors + themes
+  // Collect all tickers from sectors + themes + commodities
   const allTickers = useMemo(() => {
     const set = new Set<string>()
     SECTORS.forEach((s) => s.subIndustries.forEach((sub) => sub.tickers.forEach((t) => set.add(t))))
     THEMES.forEach((t) => t.tickers.forEach((tk) => set.add(tk)))
+    COMMODITIES.forEach((c) => c.tickers.forEach((tk) => set.add(tk)))
     return [...set]
   }, [])
 
@@ -267,11 +281,35 @@ export function HomeSectorPills() {
     [snapMap, medianVol]
   )
 
-  // Split: left col = first 5 sectors + first 5 themes, right col = next 6 sectors + rest themes
-  const leftSectors  = sectorGroups.slice(0, 5)
-  const rightSectors = sectorGroups.slice(5)
+  // Build commodity groups
+  const commodityGroups = useMemo(() =>
+    COMMODITIES.map((commodity) => {
+      const rows: Row[] = commodity.tickers
+        .map((t) => {
+          const snap = snapMap.get(t) ?? { ticker: t, price: null, change: null, changePct: null, volume: null }
+          const score = convictionScore(snap, medianVol)
+          return { snap, score, signal: signalFor(snap, score) } as Row
+        })
+        .sort((a, b) => b.score - a.score)
+      return {
+        id: commodity.id,
+        label: commodity.name,
+        count: rows.length,
+        dotColor: groupSentimentColor(rows).dot,
+        icon: commodity.icon,
+        rows,
+      }
+    }),
+    [snapMap, medianVol]
+  )
+
+  // Split: col1 = sectors, col2 = themes, col3 = commodities
+  const leftSectors  = sectorGroups.slice(0, 6)
+  const rightSectors = sectorGroups.slice(6)
   const leftThemes   = themeGroups.slice(0, 5)
   const rightThemes  = themeGroups.slice(5)
+  const leftCommodities = commodityGroups.slice(0, 4)
+  const rightCommodities = commodityGroups.slice(4)
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -288,28 +326,37 @@ export function HomeSectorPills() {
         </span>
       </div>
 
-      {/* Two-column grid */}
-      <div className="flex-1 min-h-0 grid grid-cols-2 divide-x divide-border/30 overflow-hidden">
-        {/* Left column */}
+      {/* Three-column grid */}
+      <div className="flex-1 min-h-0 grid grid-cols-3 divide-x divide-border/30 overflow-hidden">
+        {/* Col 1: Sectors */}
         <div className="overflow-y-auto p-1 space-y-0">
           <p className="font-mono text-[8px] uppercase tracking-widest text-muted-foreground/40 px-1 pb-1">Sectors</p>
           {leftSectors.map((g) => (
             <CollapsibleGroup key={g.label} label={g.label} count={g.count} dotColor={g.dotColor} rows={g.rows} defaultOpen={false} />
           ))}
-          <p className="font-mono text-[8px] uppercase tracking-widest text-muted-foreground/40 px-1 pt-2 pb-1">Themes</p>
+          {rightSectors.map((g) => (
+            <CollapsibleGroup key={g.label} label={g.label} count={g.count} dotColor={g.dotColor} rows={g.rows} defaultOpen={false} />
+          ))}
+        </div>
+
+        {/* Col 2: Themes */}
+        <div className="overflow-y-auto p-1 space-y-0">
+          <p className="font-mono text-[8px] uppercase tracking-widest text-muted-foreground/40 px-1 pb-1">Themes</p>
           {leftThemes.map((g) => (
+            <CollapsibleGroup key={g.id} label={g.label} count={g.count} dotColor={g.dotColor} icon={g.icon} rows={g.rows} defaultOpen={false} />
+          ))}
+          {rightThemes.map((g) => (
             <CollapsibleGroup key={g.id} label={g.label} count={g.count} dotColor={g.dotColor} icon={g.icon} rows={g.rows} defaultOpen={false} />
           ))}
         </div>
 
-        {/* Right column */}
+        {/* Col 3: Commodities */}
         <div className="overflow-y-auto p-1 space-y-0">
-          <p className="font-mono text-[8px] uppercase tracking-widest text-muted-foreground/40 px-1 pb-1">Sectors</p>
-          {rightSectors.map((g) => (
-            <CollapsibleGroup key={g.label} label={g.label} count={g.count} dotColor={g.dotColor} rows={g.rows} defaultOpen={false} />
+          <p className="font-mono text-[8px] uppercase tracking-widest text-muted-foreground/40 px-1 pb-1">Commodities</p>
+          {leftCommodities.map((g) => (
+            <CollapsibleGroup key={g.id} label={g.label} count={g.count} dotColor={g.dotColor} icon={g.icon} rows={g.rows} defaultOpen={false} />
           ))}
-          <p className="font-mono text-[8px] uppercase tracking-widest text-muted-foreground/40 px-1 pt-2 pb-1">Themes</p>
-          {rightThemes.map((g) => (
+          {rightCommodities.map((g) => (
             <CollapsibleGroup key={g.id} label={g.label} count={g.count} dotColor={g.dotColor} icon={g.icon} rows={g.rows} defaultOpen={false} />
           ))}
         </div>

@@ -17,77 +17,83 @@ export const dynamic = "force-dynamic"
 
 export default function HomePage() {
   const widgets: Widget[] = [
+    // ROW 1: Sectors/Themes/Commodities (left) + Account Overview (right)
     {
       id: "sectors-themes",
-      title: "Sectors & Themes",
+      title: "Sectors, Themes & Commodities",
       content: <HomeSectorPills />,
-      defaultLayout: { x: 0, y: 0, w: 6, h: 14, minW: 4, minH: 8 },
-    },
-    {
-      id: "equity-blocks",
-      title: "Equity Dark Pool & Block Trades",
-      content: <EquityBlockTradesWidget />,
-      defaultLayout: { x: 6, y: 0, w: 6, h: 14, minW: 4, minH: 8 },
-    },
-    {
-      id: "options-blocks",
-      title: "Options Flow & Block Trades",
-      content: <OptionsBlockTradesWidget />,
-      defaultLayout: { x: 0, y: 14, w: 6, h: 14, minW: 4, minH: 8 },
+      defaultLayout: { x: 0, y: 0, w: 8, h: 14, minW: 6, minH: 10 },
     },
     {
       id: "accounts",
-      title: "Trading Accounts",
+      title: "Account Overview",
       content: <DualAccountWidget />,
-      defaultLayout: { x: 6, y: 14, w: 6, h: 10, minW: 4, minH: 8 },
+      defaultLayout: { x: 8, y: 0, w: 4, h: 14, minW: 3, minH: 8 },
     },
+    // ROW 2: Flow widgets
+    {
+      id: "equity-blocks",
+      title: "Dark Pool Flow",
+      content: <EquityBlockTradesWidget />,
+      defaultLayout: { x: 0, y: 14, w: 6, h: 12, minW: 4, minH: 8 },
+    },
+    {
+      id: "options-blocks",
+      title: "Options Flow",
+      content: <OptionsBlockTradesWidget />,
+      defaultLayout: { x: 6, y: 14, w: 6, h: 12, minW: 4, minH: 8 },
+    },
+    // ROW 3: Quick actions + Sector Flow
     {
       id: "quick-trade",
       title: "Quick Trade Idea",
       content: <QuickTradeIdea />,
-      defaultLayout: { x: 9, y: 14, w: 3, h: 5, minW: 2, minH: 4 },
+      defaultLayout: { x: 0, y: 26, w: 3, h: 8, minW: 2, minH: 5 },
     },
     {
       id: "quick-order",
       title: "Quick Trade",
       content: <QuickTrade />,
-      defaultLayout: { x: 6, y: 19, w: 3, h: 6, minW: 2, minH: 5 },
+      defaultLayout: { x: 3, y: 26, w: 3, h: 8, minW: 2, minH: 5 },
     },
     {
       id: "group-flow",
       title: "Sector/ETF Flow",
       content: <GroupFlowWidget />,
-      defaultLayout: { x: 6, y: 19, w: 6, h: 9, minW: 4, minH: 6 },
+      defaultLayout: { x: 6, y: 26, w: 6, h: 8, minW: 4, minH: 6 },
     },
+    // ROW 4: Correlations + Calendar
     {
       id: "correlations",
       title: "Asset Correlations",
       content: <CorrelationsWidget />,
-      defaultLayout: { x: 0, y: 28, w: 6, h: 10, minW: 4, minH: 8 },
+      defaultLayout: { x: 0, y: 34, w: 6, h: 10, minW: 4, minH: 8 },
     },
     {
       id: "economic-calendar",
       title: "Economic Calendar",
       content: <EconomicCalendarWidget />,
-      defaultLayout: { x: 6, y: 28, w: 6, h: 10, minW: 4, minH: 6 },
+      defaultLayout: { x: 6, y: 34, w: 6, h: 10, minW: 4, minH: 6 },
     },
+    // ROW 5: Crypto + Insider
     {
       id: "crypto-whales",
       title: "Crypto Whales",
       content: <CryptoWhalesWidget />,
-      defaultLayout: { x: 0, y: 38, w: 6, h: 10, minW: 4, minH: 6 },
+      defaultLayout: { x: 0, y: 44, w: 6, h: 10, minW: 4, minH: 6 },
     },
     {
       id: "market-insider",
       title: "Market Insider Trades",
       content: <MarketInsiderWidget />,
-      defaultLayout: { x: 6, y: 38, w: 6, h: 10, minW: 4, minH: 6 },
+      defaultLayout: { x: 6, y: 44, w: 6, h: 10, minW: 4, minH: 6 },
     },
+    // ROW 6: News (full width)
     {
       id: "market-news",
       title: "Market News",
       content: <HomeMarketNews />,
-      defaultLayout: { x: 0, y: 48, w: 12, h: 10, minW: 4, minH: 5 },
+      defaultLayout: { x: 0, y: 54, w: 12, h: 10, minW: 4, minH: 5 },
     },
   ]
 
@@ -105,7 +111,7 @@ export default function HomePage() {
 
       {/* Adjustable widget grid */}
       <div className="mx-auto max-w-[1600px] px-4 py-3">
-        <AnalysisLayout widgets={widgets} storageKey="home:grid:v8" />
+        <AnalysisLayout widgets={widgets} storageKey="home:grid:v9" />
       </div>
     </main>
   )
