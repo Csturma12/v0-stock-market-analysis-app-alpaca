@@ -167,12 +167,21 @@ async function createAccessToken(): Promise<string> {
   }
 
   console.log("[v0] Webull: Creating new access token...")
+  console.log("[v0] Webull TRADE_URL:", TRADE_URL)
+  console.log("[v0] Webull APP_KEY:", APP_KEY.slice(0, 8) + "...")
+  console.log("[v0] Webull APP_SECRET length:", APP_SECRET.length)
 
   // Use the server-to-server token creation endpoint
   const path = "/openapi/auth/token/create"
   const body = "{}"
   const host = new URL(TRADE_URL).host
   const headers = buildHeaders(path, {}, body, host)
+  
+  // Debug: log headers (without sensitive values)
+  console.log("[v0] Webull headers:", {
+    ...headers,
+    "x-signature": headers["x-signature"]?.slice(0, 10) + "...",
+  })
 
   const res = await fetch(`${TRADE_URL}${path}`, {
     method: "POST",
