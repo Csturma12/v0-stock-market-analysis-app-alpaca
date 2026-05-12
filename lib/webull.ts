@@ -8,9 +8,18 @@ import crypto from "crypto"
 
 // Environment: UAT (test) or Production
 const IS_UAT = process.env.WEBULL_ENV !== "production"
-const BASE_URL = IS_UAT
+
+// Different hosts for different endpoints
+const AUTH_URL = IS_UAT
+  ? "https://us-oauth-open-api.uat.webullbroker.com"
+  : "https://us-oauth-open-api.webullbroker.com"
+
+const TRADE_URL = IS_UAT
   ? "https://us-openapi-alb.uat.webullbroker.com"
   : "https://us-openapi.webullbroker.com"
+
+// Default to trade URL for most operations
+const BASE_URL = TRADE_URL
 
 const APP_KEY = process.env.WEBULL_APP_KEY ?? ""
 const APP_SECRET = process.env.WEBULL_APP_SECRET ?? ""
@@ -56,6 +65,7 @@ function computeSignature(signatureString: string): string {
 
 /**
  * Build required headers for Webull API
+ * Per docs, use x-app-secret directly (not signature-based auth)
  */
 function buildHeaders(
   method: string,
@@ -70,7 +80,9 @@ function buildHeaders(
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
+    Accept: "application/json",
     "x-app-key": APP_KEY,
+    "x-app-secret": APP_SECRET, // Some endpoints use direct secret
     "x-timestamp": timestamp,
     "x-signature": signature,
     "x-signature-algorithm": "HMAC-SHA1",
@@ -105,12 +117,15 @@ async function createAccessToken(): Promise<string> {
   }
 
   console.log("[v0] Webull: Creating new access token...")
+  console.log("[v0] Webull AUTH_URL:", AUTH_URL)
+  console.log("[v0] Webull APP_KEY length:", APP_KEY.length)
 
+  // Use the server-to-server token creation endpoint
   const path = "/openapi/auth/token/create"
   const body = JSON.stringify({})
   const headers = buildHeaders("POST", path, body)
 
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const res = await fetch(`${AUTH_URL}${path}`, {
     method: "POST",
     headers,
     body,
