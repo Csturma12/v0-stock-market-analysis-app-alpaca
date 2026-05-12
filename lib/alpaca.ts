@@ -15,9 +15,11 @@ function headers() {
 
 async function alpaca<T>(path: string, init?: RequestInit): Promise<T> {
   const hdrs = headers()
-  // Debug: log key prefix (first 8 chars only for security)
+  // Debug: log key info (prefixes only for security)
   const keyPrefix = hdrs["APCA-API-KEY-ID"]?.slice(0, 8) ?? "MISSING"
-  console.log(`[v0] Alpaca request: ${path}, key prefix: ${keyPrefix}...`)
+  const secretLen = hdrs["APCA-API-SECRET-KEY"]?.length ?? 0
+  const secretPrefix = hdrs["APCA-API-SECRET-KEY"]?.slice(0, 4) ?? "MISSING"
+  console.log(`[v0] Alpaca request: ${path}, key: ${keyPrefix}..., secret: ${secretPrefix}... (len=${secretLen})`)
   
   const res = await fetch(BASE + path, {
     ...init,
