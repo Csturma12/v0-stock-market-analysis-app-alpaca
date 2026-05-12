@@ -84,10 +84,21 @@ function generateSignature(
     .map((k) => `${k}=${allParams[k]}`)
     .join("&")
 
-  // 4. If body exists, compute MD5 (uppercase hex)
+  // 4. If body has actual content (not empty object), compute MD5 (uppercase hex)
+  // Python: if body_params: (checks if dict is non-empty)
   let str3: string
-  if (body && body !== "{}") {
-    const str2 = crypto.createHash("md5").update(body).digest("hex").toUpperCase()
+  let bodyHasContent = false
+  try {
+    const parsed = body ? JSON.parse(body) : {}
+    bodyHasContent = Object.keys(parsed).length > 0
+  } catch {
+    bodyHasContent = body.length > 2 // More than just "{}"
+  }
+  
+  if (bodyHasContent) {
+    // Use compact JSON format like Python: separators=(',', ':')
+    const compactBody = JSON.stringify(JSON.parse(body))
+    const str2 = crypto.createHash("md5").update(compactBody).digest("hex").toUpperCase()
     str3 = `${path}&${str1}&${str2}`
   } else {
     str3 = `${path}&${str1}`
@@ -186,9 +197,9 @@ async function createAccessToken(): Promise<string> {
 
   // Use the server-to-server token creation endpoint
   const path = "/openapi/auth/token/create"
-  const body = "{}"
   const host = new URL(TRADE_URL).host
-  const headers = buildHeaders(path, {}, body, host)
+  // No body for token creation (empty body_params in Python example)
+  const headers = buildHeaders(path, {}, "", host)
   
   // Debug: log headers (without sensitive values)
   console.log("[v0] Webull headers:", {
@@ -199,7 +210,7 @@ async function createAccessToken(): Promise<string> {
   const res = await fetch(`${TRADE_URL}${path}`, {
     method: "POST",
     headers,
-    body,
+    // No body
   })
 
   const responseText = await res.text()
@@ -485,7 +496,7 @@ export async function getPositions(accountId: string): Promise<WebullPosition[]>
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Order APIs
-// ─────────────────────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────��─────────────────────────
 
 export type WebullOrder = {
   order_id: string
