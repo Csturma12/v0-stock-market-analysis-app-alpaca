@@ -185,7 +185,14 @@ export function AnalysisLayout({
     [widgets],
   )
 
-  const [layout, setLayout] = useState<Layout[]>(defaults)
+  // Initialize with defaults immediately, not empty array
+  const [layout, setLayout] = useState<Layout[]>(() => 
+    widgets.map((w) => ({
+      i: w.id,
+      ...w.defaultLayout,
+      resizeHandles: ALL_HANDLES,
+    }))
+  )
   const [hiddenWidgets, setHiddenWidgets] = useState<Set<string>>(new Set())
   const [hydrated, setHydrated] = useState(false)
   const [locked, setLocked] = useState(true) // Default to locked
