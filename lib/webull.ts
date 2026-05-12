@@ -18,6 +18,11 @@ const TRADE_URL = IS_UAT
   ? "https://us-openapi-alb.uat.webullbroker.com"
   : "https://us-openapi.webullbroker.com"
 
+// Broker API for account operations
+const BROKER_URL = IS_UAT
+  ? "https://us-broker-api.uat.webullbroker.com"
+  : "https://us-broker-api.webullbroker.com"
+
 // Default to trade URL for most operations
 const BASE_URL = TRADE_URL
 
