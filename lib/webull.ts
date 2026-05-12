@@ -25,7 +25,11 @@ const APP_KEY = process.env.WEBULL_APP_KEY ?? ""
 const APP_SECRET = process.env.WEBULL_APP_SECRET ?? ""
 
 // Cached access token (with expiry tracking)
-let cachedToken: { token: string; expires_at: number } | null = null
+let cachedToken: { 
+  token: string
+  refresh_token?: string
+  expires_at: number 
+} | null = null
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Signature Generation (HMAC-SHA1) - Per Webull Docs
@@ -146,9 +150,15 @@ async function createAccessToken(): Promise<string> {
     throw new Error("WEBULL_APP_KEY and WEBULL_APP_SECRET must be set")
   }
 
-  // Return cached token if still valid (with 60s buffer)
-  if (cachedToken && cachedToken.expires_at > Date.now() + 60000) {
+  // Return cached token if still valid (with 5 min buffer)
+  if (cachedToken && cachedToken.expires_at > Date.now() + 300000) {
     return cachedToken.token
+  }
+
+  // Try to refresh if we have a refresh token and token is expiring soon
+  if (cachedToken?.refresh_token && cachedToken.expires_at > Date.now()) {
+    const refreshed = await refreshAccessToken()
+    if (refreshed) return refreshed
   }
 
   console.log("[v0] Webull: Creating new access token...")
@@ -174,8 +184,9 @@ async function createAccessToken(): Promise<string> {
 
   const data = JSON.parse(responseText)
   
-  // Handle Webull's response format: { data: { token, expires, status } }
+  // Handle Webull's response format: { data: { token, refresh_token, expires, status } }
   const token = data.data?.token ?? data.token
+  const refreshToken = data.data?.refresh_token ?? data.refresh_token
   const expires = data.data?.expires ?? data.expires ?? 3600
 
   if (!token) {
@@ -192,10 +203,69 @@ async function createAccessToken(): Promise<string> {
   const expiresIn = typeof expires === "number" ? expires : 15 * 24 * 3600 // default 15 days
   cachedToken = {
     token,
+    refresh_token: refreshToken,
     expires_at: Date.now() + expiresIn * 1000,
   }
 
+  console.log("[v0] Webull token cached, expires in", Math.round(expiresIn / 3600), "hours")
   return token
+}
+
+/**
+ * Refresh access token using refresh_token
+ * POST /openapi/auth/token/refresh
+ */
+async function refreshAccessToken(): Promise<string | null> {
+  if (!cachedToken?.refresh_token) {
+    console.log("[v0] Webull: No refresh token available, creating new token...")
+    cachedToken = null
+    return createAccessToken()
+  }
+
+  console.log("[v0] Webull: Refreshing access token...")
+
+  const path = "/openapi/auth/token/refresh"
+  const body = JSON.stringify({ refresh_token: cachedToken.refresh_token })
+  const host = new URL(TRADE_URL).host
+  const headers = buildHeaders(path, {}, body, host)
+
+  try {
+    const res = await fetch(`${TRADE_URL}${path}`, {
+      method: "POST",
+      headers,
+      body,
+    })
+
+    if (!res.ok) {
+      console.log("[v0] Webull: Refresh failed, creating new token...")
+      cachedToken = null
+      return createAccessToken()
+    }
+
+    const data = await res.json()
+    const token = data.data?.token ?? data.token
+    const refreshToken = data.data?.refresh_token ?? data.refresh_token
+    const expires = data.data?.expires ?? data.expires ?? 3600
+
+    if (!token) {
+      cachedToken = null
+      return createAccessToken()
+    }
+
+    const expiresIn = typeof expires === "number" ? expires : 15 * 24 * 3600
+    cachedToken = {
+      token,
+      refresh_token: refreshToken ?? cachedToken.refresh_token,
+      expires_at: Date.now() + expiresIn * 1000,
+    }
+
+    console.log("[v0] Webull token refreshed, expires in", Math.round(expiresIn / 3600), "hours")
+    return token
+  } catch (err) {
+    console.error("[v0] Webull refresh error:", err)
+    cachedToken = null
+    return createAccessToken()
+  }
 }
 
 /**
@@ -250,11 +320,10 @@ async function webullRequest<T>(
   const responseText = await res.text()
   
   if (res.status === 401) {
-    // Token invalid/expired, clear cache and retry once
-    cachedToken = null
+    // Token invalid/expired, try refresh first
     console.log("[v0] Webull: Token expired, refreshing...")
     
-    const newToken = await createAccessToken()
+    const newToken = await refreshAccessToken()
     const retryHeaders = buildHeaders(path, queryParams, bodyString, host, newToken)
     
     const retryRes = await fetch(url, {
