@@ -100,6 +100,14 @@ function generateSignature(
     .update(encodedString)
     .digest("base64")
 
+  // Debug logging
+  console.log("[v0] Webull signature debug:")
+  console.log("  path:", path)
+  console.log("  host:", host)
+  console.log("  timestamp:", timestamp)
+  console.log("  str3 (pre-encode):", str3.slice(0, 200))
+  console.log("  signature:", signature)
+
   return signature
 }
 
