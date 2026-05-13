@@ -6,6 +6,15 @@ function getSupabase() {
 }
 
 export async function GET() {
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return NextResponse.json({
+      data: [],
+      count: 0,
+      available: false,
+      reason: "Supabase scanner is not configured.",
+    })
+  }
+
   try {
     const { data, error } = await getSupabase()
       .from("stock_patterns")
@@ -20,6 +29,12 @@ export async function GET() {
     return NextResponse.json({ data, count: data?.length })
   } catch (err) {
     console.error("[v0] Top patterns error:", err)
-    return NextResponse.json({ error: (err as Error).message, data: [] }, { status: 500 })
+    return NextResponse.json({
+      data: [],
+      count: 0,
+      available: false,
+      reason: "Supabase scanner data is unavailable.",
+      error: (err as Error).message,
+    })
   }
 }
