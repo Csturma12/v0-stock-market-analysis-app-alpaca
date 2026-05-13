@@ -1,62 +1,93 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import useSWR from "swr"
-import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
+import { Search, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { fmtPct, fmtPrice, fmtVolume } from "@/lib/format"
 
+const DEFAULT_SYMBOLS = ["SPY", "IWM", "DIA", "QQQ"]
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
-const SYMBOLS = ["SPY", "QQQ", "IWM", "DIA"]
-const RANGES = ["1D", "1M", "YTD"] as const
+type SearchResult = {
+  ticker: string
+  name: string
+  primaryExchange: string
+  type: string
+}
 
-type Range = (typeof RANGES)[number]
-type Candle = {
-  date: string
-  close: number
-  volume: number
+function TradingViewEmbed({ symbol }: { symbol: string }) {
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!ref.current) return
+    ref.current.innerHTML = ""
+
+    const container = document.createElement("div")
+    container.className = "tradingview-widget-container"
+    container.style.height = "100%"
+    container.style.width = "100%"
+
+    const widget = document.createElement("div")
+    widget.className = "tradingview-widget-container__widget"
+    widget.style.height = "100%"
+    widget.style.width = "100%"
+    container.appendChild(widget)
+
+    const script = document.createElement("script")
+    script.type = "text/javascript"
+    script.async = true
+    script.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js"
+    script.innerHTML = JSON.stringify({
+      autosize: true,
+      symbol,
+      interval: "D",
+      timezone: "Etc/UTC",
+      theme: "dark",
+      style: "1",
+      locale: "en",
+      allow_symbol_change: true,
+      calendar: false,
+      hide_top_toolbar: false,
+      hide_legend: false,
+      support_host: "https://www.tradingview.com",
+    })
+
+    container.appendChild(script)
+    ref.current.appendChild(container)
+  }, [symbol])
+
+  return <div ref={ref} className="h-full w-full overflow-hidden rounded-md border border-border bg-card" />
 }
 
 export function HomeMarketChart() {
   const [symbol, setSymbol] = useState("SPY")
-  const [range, setRange] = useState<Range>("1M")
-  const interval = range === "1D" ? "15m" : range === "YTD" ? "1d" : "1h"
-  const { data, isLoading } = useSWR<{ candles: Candle[] }>(
-    `/api/ticker/${symbol}/candles?range=${range}&interval=${interval}`,
+  const [query, setQuery] = useState("")
+  const [debounced, setDebounced] = useState("")
+
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebounced(query.trim()), 200)
+    return () => window.clearTimeout(t)
+  }, [query])
+
+  const { data, isLoading } = useSWR<{ results: SearchResult[] }>(
+    debounced.length > 0 ? `/api/search/tickers?q=${encodeURIComponent(debounced)}` : null,
     fetcher,
-    { refreshInterval: 30_000, keepPreviousData: false },
+    { keepPreviousData: true },
   )
 
-  const candles = data?.candles ?? []
-  const chartData = useMemo(
-    () =>
-      candles.map((c) => ({
-        date: c.date,
-        close: c.close,
-        volume: c.volume,
-      })),
-    [candles],
-  )
+  const results = data?.results ?? []
 
-  const first = candles[0]?.close ?? null
-  const last = candles[candles.length - 1]?.close ?? null
-  const changePct = first && last ? ((last / first) - 1) * 100 : null
-  const up = (changePct ?? 0) >= 0
-  const lastVolume = candles[candles.length - 1]?.volume ?? null
+  const symbolButtons = useMemo(() => DEFAULT_SYMBOLS, [])
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
-      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/30 px-2 py-1.5">
-        <div className="flex items-baseline gap-2">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border/30 px-2 py-1.5">
+        <div className="flex items-center gap-1.5">
           <span className="font-mono text-lg font-bold tabular-nums">{symbol}</span>
-          <span className="font-mono text-sm tabular-nums text-muted-foreground">{fmtPrice(last)}</span>
-          <span className={cn("font-mono text-xs font-semibold tabular-nums", up ? "text-[color:var(--color-bull)]" : "text-[color:var(--color-bear)]")}>
-            {changePct == null ? "-" : fmtPct(changePct)}
-          </span>
+          <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">TradingView</span>
         </div>
         <div className="flex items-center gap-1">
-          {SYMBOLS.map((s) => (
+          {symbolButtons.map((s) => (
             <button
               key={s}
               type="button"
@@ -72,56 +103,42 @@ export function HomeMarketChart() {
         </div>
       </div>
 
-      <div className="flex shrink-0 items-center justify-between px-2 py-1">
-        <span className="font-mono text-[10px] text-muted-foreground">Vol {fmtVolume(lastVolume)}</span>
-        <div className="flex items-center gap-1">
-          {RANGES.map((r) => (
+      <div className="flex shrink-0 items-center gap-2 border-b border-border/20 px-2 py-2">
+        <div className="relative min-w-0 flex-1">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value.toUpperCase())}
+            placeholder="Search any ticker..."
+            className="h-8 w-full rounded border border-border bg-background pl-8 pr-3 font-mono text-xs outline-none focus:border-primary/70"
+          />
+        </div>
+        <div className="flex items-center gap-1 overflow-x-auto">
+          {isLoading && debounced && (
+            <span className="inline-flex items-center gap-1 font-mono text-[10px] text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Searching...
+            </span>
+          )}
+          {results.slice(0, 4).map((r) => (
             <button
-              key={r}
+              key={r.ticker}
               type="button"
-              onClick={() => setRange(r)}
-              className={cn(
-                "rounded px-1.5 py-0.5 font-mono text-[10px] transition-colors",
-                range === r ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-              )}
+              onClick={() => {
+                setSymbol(r.ticker.toUpperCase())
+                setQuery("")
+              }}
+              className="rounded border border-border bg-muted/20 px-2 py-1 font-mono text-[10px] hover:border-primary/60 hover:text-foreground"
+              title={r.name}
             >
-              {r}
+              {r.ticker}
             </button>
           ))}
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 px-1 pb-1">
-        {isLoading && chartData.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-xs text-muted-foreground">Loading chart...</div>
-        ) : (
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
-              <defs>
-                <linearGradient id="home-chart-fill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={up ? "var(--color-bull)" : "var(--color-bear)"} stopOpacity={0.35} />
-                  <stop offset="95%" stopColor={up ? "var(--color-bull)" : "var(--color-bear)"} stopOpacity={0.02} />
-                </linearGradient>
-              </defs>
-              <XAxis dataKey="date" hide />
-              <YAxis domain={["dataMin", "dataMax"]} hide />
-              <Tooltip
-                contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 6, fontSize: 11 }}
-                formatter={(value: number) => [fmtPrice(value), symbol]}
-                labelFormatter={(label) => String(label)}
-              />
-              <Area
-                type="monotone"
-                dataKey="close"
-                stroke={up ? "var(--color-bull)" : "var(--color-bear)"}
-                fill="url(#home-chart-fill)"
-                strokeWidth={2}
-                dot={false}
-                isAnimationActive={false}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        )}
+      <div className="min-h-0 flex-1 p-1">
+        <TradingViewEmbed symbol={symbol} />
       </div>
     </div>
   )

@@ -278,7 +278,7 @@ export function HomeSectorPills() {
   }, [])
 
   const { data } = useSWR<{ data: Snap[] }>(
-    allTickers.length ? `/api/market/subindustry?tickers=${allTickers.slice(0, 150).join(",")}` : null,
+    allTickers.length ? `/api/market/subindustry?tickers=${allTickers.join(",")}` : null,
     fetcher,
     { refreshInterval: 30_000 },
   )
