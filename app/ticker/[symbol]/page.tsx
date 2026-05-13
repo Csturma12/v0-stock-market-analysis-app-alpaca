@@ -133,11 +133,11 @@ export default async function TickerPage({ params }: { params: Promise<{ symbol:
       defaultLayout: { x: 8, y: 0, w: 4, h: 16, minW: 3, minH: 8 },
     },
     {
-      id: "fundamentals-calendar",
-      title: "Fundamentals, Earnings & Calendar",
+      id: "fundamentals",
+      title: "Fundamentals & Earnings",
       content: (
         <WidgetGroup
-          id="fundamentals-calendar"
+          id="fundamentals"
           storageKey={layoutStorageKey}
           items={[
             {
@@ -159,17 +159,6 @@ export default async function TickerPage({ params }: { params: Promise<{ symbol:
               defaultOpen: false,
             },
             {
-              id: "economic-calendar",
-              title: "Economic Calendar",
-              content: <EconomicCalendarWidget />,
-              availability: {
-                url: "/api/uw/economic-calendar",
-                kind: "data-array",
-                reason: "Economic calendar is unavailable because the provider returned no upcoming events.",
-              },
-              defaultOpen: false,
-            },
-            {
               id: "short-interest",
               title: "Short Interest",
               content: <ShortInterestWidget symbol={sym} />,
@@ -178,7 +167,37 @@ export default async function TickerPage({ params }: { params: Promise<{ symbol:
           ]}
         />
       ),
-      defaultLayout: { x: 8, y: 16, w: 4, h: 12, minW: 3, minH: 7 },
+      defaultLayout: { x: 8, y: 16, w: 4, h: 10, minW: 3, minH: 6 },
+    },
+    {
+      id: "calendar-news",
+      title: "Economic Calendar & Latest News",
+      content: (
+        <WidgetGroup
+          id="calendar-news"
+          storageKey={layoutStorageKey}
+          items={[
+            {
+              id: "economic-calendar",
+              title: "Economic Calendar",
+              content: <EconomicCalendarWidget />,
+              availability: {
+                url: "/api/uw/economic-calendar",
+                kind: "data-array",
+                reason: "Economic calendar is unavailable because the provider returned no upcoming events.",
+              },
+              defaultOpen: true,
+            },
+            {
+              id: "latest-news",
+              title: "Latest News",
+              content: <TickerNews symbol={sym} />,
+              defaultOpen: true,
+            },
+          ]}
+        />
+      ),
+      defaultLayout: { x: 8, y: 26, w: 4, h: 10, minW: 3, minH: 6 },
     },
     {
       id: "execution",
@@ -242,12 +261,6 @@ export default async function TickerPage({ params }: { params: Promise<{ symbol:
               title: "ETF Weighting",
               content: <EtfExposureWidget symbol={sym} />,
               defaultOpen: false,
-            },
-            {
-              id: "news",
-              title: "Latest News",
-              content: <TickerNews symbol={sym} />,
-              defaultOpen: true,
             },
           ]}
         />
