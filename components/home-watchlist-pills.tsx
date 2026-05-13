@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
 import { fmtPct, fmtPrice, fmtVolume } from "@/lib/format"
+import { jsonFetcher } from "@/lib/widget-data"
 import {
   addTickerToWatchlist,
   cleanSymbol,
@@ -24,26 +25,22 @@ import {
   type Watchlists,
 } from "./watchlist-storage"
 
-const fetcher = async (symbols: string[]) => {
-  const rows = await Promise.all(
-    symbols.map((symbol) =>
-      fetch(`/api/ticker/${encodeURIComponent(symbol)}`)
-        .then((r) => (r.ok ? r.json() : null))
-        .catch(() => null),
-    ),
-  )
-  return rows.filter(Boolean)
-}
-
 type TickerData = {
   symbol: string
+  ticker?: string
+  price?: number | null
+  open?: number | null
+  high?: number | null
+  low?: number | null
+  changePct?: number | null
+  volume?: number | null
   snapshot?: { price?: number; open?: number; high?: number; low?: number; changePct?: number; volume?: number }
   candles?: Array<{ open: number; high: number; low: number; close: number; volume: number }>
   technicals?: { volumeRatio?: number | null; momentum5?: number | null }
 }
 
 function scoreHotToday(row: TickerData) {
-  const move = Math.abs(row.snapshot?.changePct ?? 0)
+  const move = Math.abs(row.snapshot?.changePct ?? row.changePct ?? 0)
   const volRatio = row.technicals?.volumeRatio ?? 1
   const momentum = Math.abs(row.technicals?.momentum5 ?? 0) / 2
   return Math.min(99, Math.round(35 + move * 9 + Math.max(0, volRatio - 1) * 22 + momentum))
@@ -63,11 +60,18 @@ export function HomeWatchlistPills() {
 
   const listNames = Object.keys(watchlists)
   const symbols = useMemo(() => (watchlists[activeList] ?? []).map(cleanSymbol).filter(Boolean), [watchlists, activeList])
-  const { data, isLoading } = useSWR(symbols.length ? ["watchlist-quotes", ...symbols] : null, () => fetcher(symbols), {
+  const watchlistUrl = symbols.length
+    ? `/api/market/subindustry?tickers=${symbols.map(encodeURIComponent).join(",")}`
+    : null
+  const { data, isLoading } = useSWR<{ data: TickerData[] }>(watchlistUrl, jsonFetcher, {
     refreshInterval: 30_000,
-    keepPreviousData: false,
+    dedupingInterval: 20_000,
+    keepPreviousData: true,
   })
-  const rows = ((data ?? []) as TickerData[]).sort((a, b) => scoreHotToday(b) - scoreHotToday(a))
+  const rows = (data?.data ?? [])
+    .map((row) => ({ ...row, symbol: (row.symbol ?? row.ticker ?? "").toUpperCase() }))
+    .filter((row) => row.symbol)
+    .sort((a, b) => scoreHotToday(b) - scoreHotToday(a))
 
   function addToActiveList() {
     const sym = cleanSymbol(newSymbol)
@@ -117,11 +121,11 @@ export function HomeWatchlistPills() {
           <div className="space-y-1">
             {rows.map((row) => {
               const candle = row.candles?.[row.candles.length - 1]
-              const o = row.snapshot?.open ?? candle?.open ?? null
-              const h = row.snapshot?.high ?? candle?.high ?? null
-              const l = row.snapshot?.low ?? candle?.low ?? null
-              const c = row.snapshot?.price ?? candle?.close ?? null
-              const pct = row.snapshot?.changePct ?? null
+              const o = row.snapshot?.open ?? row.open ?? candle?.open ?? null
+              const h = row.snapshot?.high ?? row.high ?? candle?.high ?? null
+              const l = row.snapshot?.low ?? row.low ?? candle?.low ?? null
+              const c = row.snapshot?.price ?? row.price ?? candle?.close ?? null
+              const pct = row.snapshot?.changePct ?? row.changePct ?? null
               const up = (pct ?? 0) >= 0
               const hot = scoreHotToday(row)
 
@@ -139,7 +143,7 @@ export function HomeWatchlistPills() {
                     </div>
                     <div className="mt-0.5 flex items-center gap-2 font-mono text-[9px]">
                       <span className={cn(up ? "text-[color:var(--color-bull)]" : "text-[color:var(--color-bear)]")}>{pct == null ? "-" : fmtPct(pct)}</span>
-                      <span className="text-muted-foreground">Vol {fmtVolume(row.snapshot?.volume)}</span>
+                      <span className="text-muted-foreground">Vol {fmtVolume(row.snapshot?.volume ?? row.volume)}</span>
                     </div>
                   </Link>
                   <span className={cn("rounded px-1.5 py-0.5 text-center font-mono text-[9px] font-bold", hot >= 75 ? "bg-[color:var(--color-bull)]/15 text-[color:var(--color-bull)]" : hot >= 55 ? "bg-amber-500/15 text-amber-400" : "bg-muted text-muted-foreground")}>

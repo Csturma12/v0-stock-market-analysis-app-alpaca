@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from "react"
 import useSWR from "swr"
 import { AlertTriangle, ChevronDown, ChevronRight, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { jsonFetcher, useDelayedKey, useDelayedReady, WIDGET_STAGGER_MS } from "@/lib/widget-data"
 
 type AvailabilityKind = "data-object" | "data-array" | "alerts" | "prints" | "snapshot"
 
@@ -24,8 +25,6 @@ type WidgetGroupProps = {
   items: WidgetGroupItem[]
   storageKey: string
 }
-
-const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 function hasLiveData(payload: unknown, kind: AvailabilityKind) {
   const data = payload as Record<string, any> | null | undefined
@@ -52,16 +51,22 @@ function hasLiveData(payload: unknown, kind: AvailabilityKind) {
 
 function WidgetGroupSection({
   item,
+  index,
   open,
   onToggle,
 }: {
   item: WidgetGroupItem
+  index: number
   open: boolean
   onToggle: () => void
 }) {
-  const { data, isLoading, error } = useSWR(item.availability?.url ?? null, fetcher, {
+  const delayMs = index * WIDGET_STAGGER_MS
+  const availabilityKey = useDelayedKey(item.availability?.url ?? null, delayMs)
+  const contentReady = useDelayedReady(open ? delayMs + 80 : 0)
+  const { data, isLoading, error } = useSWR(availabilityKey, jsonFetcher, {
+    dedupingInterval: 45_000,
     refreshInterval: 60_000,
-    revalidateOnFocus: true,
+    revalidateOnFocus: false,
   })
   const hasGate = Boolean(item.availability)
   const available = !hasGate || (!error && hasLiveData(data, item.availability!.kind))
@@ -102,7 +107,15 @@ function WidgetGroupSection({
         </div>
       )}
 
-      {open && available && <div className="min-h-[220px] border-t border-border/30">{item.content}</div>}
+      {open && available && (
+        <div className="min-h-[220px] border-t border-border/30">
+          {contentReady ? item.content : (
+            <div className="flex min-h-[220px] items-center justify-center text-xs text-muted-foreground">
+              Loading {item.title.toLowerCase()}...
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -139,10 +152,11 @@ export function WidgetGroup({ id, items, storageKey }: WidgetGroupProps) {
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-1.5 overflow-y-auto p-1.5">
-      {items.map((item) => (
+      {items.map((item, index) => (
         <WidgetGroupSection
           key={item.id}
           item={item}
+          index={index}
           open={openItems.has(item.id)}
           onToggle={() => toggleItem(item.id)}
         />
