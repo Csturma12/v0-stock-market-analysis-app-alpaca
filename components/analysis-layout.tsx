@@ -71,7 +71,7 @@ const TEMPLATE_PRESETS: Record<string, {
     name: "Analyst Analysis",
     icon: LineChart,
     description: "Analyst ratings, price targets, and recommendations",
-    widgets: ["chart", "analyst-ratings", "key-metrics", "fundamentals", "earnings-history", "news", "insider-activity", "etf-exposure"],
+    widgets: ["chart", "research-intel", "technical-fundamentals", "analyst-ratings", "key-metrics", "fundamentals", "earnings-history", "news", "insider-activity", "etf-exposure"],
     layouts: {
       "chart": { x: 0, y: 0, w: 8, h: 12 },
       "analyst-ratings": { x: 8, y: 0, w: 4, h: 12 },
@@ -87,7 +87,7 @@ const TEMPLATE_PRESETS: Record<string, {
     name: "AI Analysis",
     icon: Brain,
     description: "AI-powered trade ideas, patterns, and catalysts",
-    widgets: ["chart", "trade-idea", "patterns", "catalysts", "technicals", "news", "support-resistance"],
+    widgets: ["chart", "execution", "research-intel", "support-technicals", "technical-fundamentals", "trade-idea", "patterns", "catalysts", "technicals", "news", "support-resistance"],
     layouts: {
       "chart": { x: 0, y: 0, w: 7, h: 12 },
       "trade-idea": { x: 7, y: 0, w: 5, h: 12 },
@@ -102,7 +102,7 @@ const TEMPLATE_PRESETS: Record<string, {
     name: "Fundamentals & Technicals",
     icon: Calculator,
     description: "Company financials and technical indicators",
-    widgets: ["chart", "fundamentals", "key-metrics", "earnings-history", "technicals", "support-resistance", "short-interest", "analyst-ratings"],
+    widgets: ["chart", "fundamentals-calendar", "support-technicals", "research-intel", "technical-fundamentals", "fundamentals", "key-metrics", "earnings-history", "technicals", "support-resistance", "short-interest", "analyst-ratings"],
     layouts: {
       "chart": { x: 0, y: 0, w: 8, h: 12 },
       "technicals": { x: 8, y: 0, w: 4, h: 6 },
@@ -118,7 +118,7 @@ const TEMPLATE_PRESETS: Record<string, {
     name: "Options Trading",
     icon: TrendingUp,
     description: "Options flow, GEX, volatility, and dark pool",
-    widgets: ["chart", "options-blocks", "gex", "volatility", "contract-drill-down", "equity-blocks", "short-interest"],
+    widgets: ["chart", "flow-options", "support-technicals", "options-blocks", "gex", "volatility", "contract-drill-down", "equity-blocks", "short-interest"],
     layouts: {
       "chart": { x: 0, y: 0, w: 6, h: 12 },
       "gex": { x: 6, y: 0, w: 3, h: 12 },
@@ -133,7 +133,7 @@ const TEMPLATE_PRESETS: Record<string, {
     name: "Market Research",
     icon: Search,
     description: "ETF exposure, insider activity, and research",
-    widgets: ["chart", "news", "etf-exposure", "insider-activity", "analyst-ratings", "fundamentals", "catalysts", "earnings-history"],
+    widgets: ["chart", "research-intel", "fundamentals-calendar", "execution", "technical-fundamentals", "ai-trade", "news", "etf-exposure", "insider-activity", "analyst-ratings", "fundamentals", "catalysts", "earnings-history"],
     layouts: {
       "chart": { x: 0, y: 0, w: 6, h: 10 },
       "news": { x: 6, y: 0, w: 6, h: 10 },
@@ -149,7 +149,7 @@ const TEMPLATE_PRESETS: Record<string, {
     name: "Day Trading",
     icon: Zap,
     description: "Real-time flow, GEX, technicals, S/R levels",
-    widgets: ["chart", "technicals", "support-resistance", "gex", "equity-blocks", "options-blocks", "volatility"],
+    widgets: ["chart", "flow-options", "support-technicals", "execution", "technical-fundamentals", "technicals", "support-resistance", "gex", "equity-blocks", "options-blocks", "volatility"],
     layouts: {
       "chart": { x: 0, y: 0, w: 8, h: 14 },
       "technicals": { x: 8, y: 0, w: 4, h: 7 },

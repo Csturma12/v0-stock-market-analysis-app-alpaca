@@ -31,6 +31,7 @@ export function QuickTradeIdea() {
   const [loading, setLoading] = useState(false)
   const [claudeIdea, setClaudeIdea] = useState<ClaudeIdea | null>(null)
   const [openaiIdea, setOpenaiIdea] = useState<OpenAIIdea | null>(null)
+  const [source, setSource] = useState<"claude" | "openai" | "both">("both")
   const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -44,29 +45,31 @@ export function QuickTradeIdea() {
     setOpenaiIdea(null)
 
     try {
+      const shouldFetchClaude = source === "claude" || source === "both"
+      const shouldFetchOpenAI = source === "openai" || source === "both"
       const [claudeRes, openaiRes] = await Promise.all([
-        fetch("/api/trade-idea", {
+        shouldFetchClaude ? fetch("/api/trade-idea", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ symbol: sym }),
-        }),
-        fetch("/api/trade-idea-openai", {
+        }) : Promise.resolve(null),
+        shouldFetchOpenAI ? fetch("/api/trade-idea-openai", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ symbol: sym }),
-        }),
+        }) : Promise.resolve(null),
       ])
 
       const [claudeData, openaiData] = await Promise.all([
-        claudeRes.json(),
-        openaiRes.json(),
+        claudeRes ? claudeRes.json() : Promise.resolve({ error: true }),
+        openaiRes ? openaiRes.json() : Promise.resolve({ error: true }),
       ])
 
-      if (claudeData.error && openaiData.error) {
+      if ((shouldFetchClaude && claudeData.error) && (shouldFetchOpenAI && openaiData.error)) {
         setError("Failed to generate ideas. Try again.")
       } else {
-        if (!claudeData.error) setClaudeIdea(claudeData)
-        if (!openaiData.error) setOpenaiIdea(openaiData)
+        if (shouldFetchClaude && !claudeData.error) setClaudeIdea(claudeData)
+        if (shouldFetchOpenAI && !openaiData.error) setOpenaiIdea(openaiData)
       }
     } catch (e: any) {
       setError(e.message || "Network error")
@@ -83,6 +86,22 @@ export function QuickTradeIdea() {
 
   return (
     <div className="flex h-full flex-col overflow-hidden p-3">
+      <div className="mb-2 grid grid-cols-3 gap-1 rounded-md border border-border/40 bg-muted/20 p-1">
+        {(["claude", "openai", "both"] as const).map((value) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => setSource(value)}
+            className={cn(
+              "rounded px-2 py-1 font-mono text-[9px] font-semibold uppercase transition-colors",
+              source === value ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground",
+            )}
+          >
+            {value === "openai" ? "OpenAI" : value}
+          </button>
+        ))}
+      </div>
+
       {/* Input row */}
       <div className="flex items-center gap-2 mb-3">
         <input

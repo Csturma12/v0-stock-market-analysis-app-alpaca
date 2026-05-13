@@ -1,10 +1,12 @@
 import Link from "next/link"
 import { ChevronLeft } from "lucide-react"
+import { EconomicCalendarWidget } from "@/components/economic-calendar-widget"
 import { TickerHeader } from "@/components/ticker-header"
 import { TickerChart } from "@/components/ticker-chart"
 import { TickerTechnicals } from "@/components/ticker-technicals"
 import { TickerPatterns } from "@/components/ticker-patterns"
 import { TradeIdeaPanel } from "@/components/trade-idea-panel"
+import { QuickTrade } from "@/components/quick-trade"
 import { KeyMetricsDisplay } from "@/components/key-metrics-display"
 import { TickerSupportResistance } from "@/components/ticker-support-resistance"
 import { TickerCatalystsRisks } from "@/components/ticker-catalysts-risks"
@@ -21,138 +23,236 @@ import { EtfExposureWidget } from "@/components/etf-exposure-widget"
 import { OptionContractDrillDownWidget } from "@/components/option-contract-drill-down-widget"
 import { GexWidget } from "@/components/gex-widget"
 import { AnalysisLayout, type Widget } from "@/components/analysis-layout"
+import { WidgetGroup } from "@/components/widget-group"
 
 export const dynamic = "force-dynamic"
 
 export default async function TickerPage({ params }: { params: Promise<{ symbol: string }> }) {
   const { symbol } = await params
   const sym = symbol.toUpperCase()
+  const layoutStorageKey = `analysis:grid:v19:${sym}`
 
   const widgets: Widget[] = [
-    // PRIMARY: Chart - always visible, largest widget
     {
       id: "chart",
       title: "Price Chart",
       content: <TickerChart symbol={sym} className="h-full" />,
       defaultLayout: { x: 0, y: 0, w: 8, h: 14, minW: 4, minH: 8 },
     },
-
-    // TECHNICALS GROUP: Support/Resistance + Technicals (Day Trading, AI)
     {
-      id: "technicals",
-      title: "Technical Indicators",
-      content: <TickerTechnicals symbol={sym} />,
-      defaultLayout: { x: 8, y: 0, w: 4, h: 7, minW: 2, minH: 4 },
+      id: "flow-options",
+      title: "Dark Pool, Options Chain & Blocks",
+      content: (
+        <WidgetGroup
+          id="flow-options"
+          storageKey={layoutStorageKey}
+          items={[
+            {
+              id: "dark-pool",
+              title: "Dark Pool Blocks",
+              content: <EquityBlockTradesWidget symbol={sym} />,
+              availability: {
+                url: `/api/uw/ticker/${sym}/dark-pool`,
+                kind: "prints",
+                reason: "Dark pool data is unavailable because Unusual Whales returned no block prints for this ticker in the current window.",
+              },
+              defaultOpen: true,
+            },
+            {
+              id: "options-flow",
+              title: "Options Blocks",
+              content: <OptionsBlockTradesWidget symbol={sym} />,
+              availability: {
+                url: `/api/uw/ticker/${sym}/options-flow`,
+                kind: "alerts",
+                reason: "Options flow is unavailable because the live flow provider returned no alerts for this ticker.",
+              },
+              defaultOpen: true,
+            },
+            {
+              id: "contract-drill-down",
+              title: "Options Chain / Contract Drill-Down",
+              content: <OptionContractDrillDownWidget symbol={sym} />,
+              availability: {
+                url: `/api/uw/ticker/${sym}/options-flow`,
+                kind: "alerts",
+                reason: "Options chain drill-down is unavailable until the options provider returns live contracts or flow alerts for this ticker.",
+              },
+              defaultOpen: false,
+            },
+            {
+              id: "gamma",
+              title: "Gamma / GEX / DEX",
+              content: <GexWidget symbol={sym} />,
+              availability: {
+                url: `/api/fa/ticker/${sym}/gex`,
+                kind: "data-object",
+                reason: "Gamma is unavailable because FlashAlpha returned no GEX/DEX payload for this ticker.",
+              },
+              defaultOpen: false,
+            },
+            {
+              id: "volatility",
+              title: "Volatility IV/HV",
+              content: <VolatilityWidget symbol={sym} />,
+              availability: {
+                url: `/api/uw/ticker/${sym}/volatility`,
+                kind: "data-array",
+                reason: "Volatility is unavailable because the IV/HV provider returned no history for this ticker.",
+              },
+              defaultOpen: false,
+            },
+          ]}
+        />
+      ),
+      defaultLayout: { x: 0, y: 14, w: 8, h: 18, minW: 5, minH: 8 },
     },
     {
-      id: "support-resistance",
-      title: "Support & Resistance",
-      content: <TickerSupportResistance symbol={sym} />,
-      defaultLayout: { x: 8, y: 7, w: 4, h: 7, minW: 2, minH: 4 },
-    },
-
-    // OPTIONS GROUP: GEX, Volatility, Options Flow, Dark Pool
-    {
-      id: "gex",
-      title: "GEX / DEX Levels",
-      content: <GexWidget symbol={sym} />,
-      defaultLayout: { x: 0, y: 14, w: 4, h: 10, minW: 2, minH: 8 },
-    },
-    {
-      id: "volatility",
-      title: "Volatility (IV/HV)",
-      content: <VolatilityWidget symbol={sym} />,
-      defaultLayout: { x: 4, y: 14, w: 4, h: 10, minW: 2, minH: 8 },
-    },
-    {
-      id: "options-blocks",
-      title: "Options Flow",
-      content: <OptionsBlockTradesWidget symbol={sym} />,
-      defaultLayout: { x: 8, y: 14, w: 4, h: 10, minW: 3, minH: 8 },
-    },
-    {
-      id: "equity-blocks",
-      title: "Dark Pool Flow",
-      content: <EquityBlockTradesWidget symbol={sym} />,
-      defaultLayout: { x: 0, y: 24, w: 6, h: 10, minW: 4, minH: 8 },
+      id: "support-technicals",
+      title: "Support / Resistance & Technicals",
+      content: (
+        <WidgetGroup
+          id="support-technicals"
+          storageKey={layoutStorageKey}
+          items={[
+            {
+              id: "support-resistance",
+              title: "Support Levels",
+              content: <TickerSupportResistance symbol={sym} />,
+              defaultOpen: true,
+            },
+            {
+              id: "technicals",
+              title: "Technicals",
+              content: <TickerTechnicals symbol={sym} />,
+              defaultOpen: true,
+            },
+          ]}
+        />
+      ),
+      defaultLayout: { x: 8, y: 0, w: 4, h: 16, minW: 3, minH: 8 },
     },
     {
-      id: "contract-drill-down",
-      title: "Options Drill-Down",
-      content: <OptionContractDrillDownWidget symbol={sym} />,
-      defaultLayout: { x: 6, y: 24, w: 6, h: 10, minW: 4, minH: 8 },
-    },
-
-    // FUNDAMENTALS GROUP: Key Metrics, Fundamentals, Earnings
-    {
-      id: "key-metrics",
-      title: "Key Metrics",
-      content: <KeyMetricsDisplay symbol={sym} />,
-      defaultLayout: { x: 0, y: 34, w: 3, h: 8, minW: 2, minH: 5 },
-    },
-    {
-      id: "fundamentals",
-      title: "Fundamentals",
-      content: <FundamentalsWidget symbol={sym} />,
-      defaultLayout: { x: 3, y: 34, w: 3, h: 8, minW: 2, minH: 6 },
-    },
-    {
-      id: "earnings-history",
-      title: "Earnings History",
-      content: <EarningsHistoryWidget symbol={sym} />,
-      defaultLayout: { x: 6, y: 34, w: 3, h: 8, minW: 2, minH: 6 },
-    },
-    {
-      id: "short-interest",
-      title: "Short Interest",
-      content: <ShortInterestWidget symbol={sym} />,
-      defaultLayout: { x: 9, y: 34, w: 3, h: 8, minW: 2, minH: 6 },
-    },
-
-    // RESEARCH GROUP: Analyst, Insider, ETF, News
-    {
-      id: "analyst-ratings",
-      title: "Analyst Ratings",
-      content: <AnalystRatingsWidget symbol={sym} />,
-      defaultLayout: { x: 0, y: 42, w: 4, h: 10, minW: 2, minH: 8 },
-    },
-    {
-      id: "insider-activity",
-      title: "Insider Activity",
-      content: <InsiderActivityWidget symbol={sym} />,
-      defaultLayout: { x: 4, y: 42, w: 4, h: 10, minW: 2, minH: 8 },
-    },
-    {
-      id: "etf-exposure",
-      title: "ETF Exposure",
-      content: <EtfExposureWidget symbol={sym} />,
-      defaultLayout: { x: 8, y: 42, w: 4, h: 10, minW: 2, minH: 8 },
+      id: "fundamentals-calendar",
+      title: "Fundamentals, Earnings & Calendar",
+      content: (
+        <WidgetGroup
+          id="fundamentals-calendar"
+          storageKey={layoutStorageKey}
+          items={[
+            {
+              id: "fundamentals",
+              title: "Fundamentals",
+              content: <FundamentalsWidget symbol={sym} />,
+              defaultOpen: false,
+            },
+            {
+              id: "key-metrics",
+              title: "Metrics",
+              content: <KeyMetricsDisplay symbol={sym} />,
+              defaultOpen: false,
+            },
+            {
+              id: "earnings-history",
+              title: "Earnings",
+              content: <EarningsHistoryWidget symbol={sym} />,
+              defaultOpen: false,
+            },
+            {
+              id: "economic-calendar",
+              title: "Economic Calendar",
+              content: <EconomicCalendarWidget />,
+              availability: {
+                url: "/api/uw/economic-calendar",
+                kind: "data-array",
+                reason: "Economic calendar is unavailable because the provider returned no upcoming events.",
+              },
+              defaultOpen: false,
+            },
+            {
+              id: "short-interest",
+              title: "Short Interest",
+              content: <ShortInterestWidget symbol={sym} />,
+              defaultOpen: false,
+            },
+          ]}
+        />
+      ),
+      defaultLayout: { x: 8, y: 16, w: 4, h: 12, minW: 3, minH: 7 },
     },
     {
-      id: "news",
-      title: "Latest News",
-      content: <TickerNews symbol={sym} />,
-      defaultLayout: { x: 0, y: 52, w: 12, h: 8, minW: 4, minH: 5 },
+      id: "execution",
+      title: "Quick Trade & AI Setup",
+      content: (
+        <WidgetGroup
+          id="execution"
+          storageKey={layoutStorageKey}
+          items={[
+            {
+              id: "quick-trade",
+              title: "Quick Trade",
+              content: <QuickTrade initialSymbol={sym} />,
+              defaultOpen: true,
+            },
+            {
+              id: "trade-idea",
+              title: "Trade Idea",
+              content: <TradeIdeaPanel symbol={sym} />,
+              defaultOpen: true,
+            },
+            {
+              id: "patterns",
+              title: "Chart Patterns",
+              content: <TickerPatterns symbol={sym} />,
+              defaultOpen: false,
+            },
+            {
+              id: "catalysts",
+              title: "Catalysts & Risks",
+              content: <TickerCatalystsRisks symbol={sym} />,
+              defaultOpen: false,
+            },
+          ]}
+        />
+      ),
+      defaultLayout: { x: 8, y: 28, w: 4, h: 12, minW: 3, minH: 7 },
     },
-
-    // AI GROUP: Trade Ideas, Patterns, Catalysts
     {
-      id: "trade-idea",
-      title: "AI Trade Idea",
-      content: <TradeIdeaPanel symbol={sym} />,
-      defaultLayout: { x: 0, y: 60, w: 5, h: 10, minW: 3, minH: 6 },
-    },
-    {
-      id: "patterns",
-      title: "Chart Patterns",
-      content: <TickerPatterns symbol={sym} />,
-      defaultLayout: { x: 5, y: 60, w: 4, h: 10, minW: 2, minH: 5 },
-    },
-    {
-      id: "catalysts",
-      title: "Catalysts & Risks",
-      content: <TickerCatalystsRisks symbol={sym} />,
-      defaultLayout: { x: 9, y: 60, w: 3, h: 10, minW: 2, minH: 5 },
+      id: "research-intel",
+      title: "Insider, Analyst & ETF Intelligence",
+      content: (
+        <WidgetGroup
+          id="research-intel"
+          storageKey={layoutStorageKey}
+          items={[
+            {
+              id: "analyst-ratings",
+              title: "Analyst Reviews",
+              content: <AnalystRatingsWidget symbol={sym} />,
+              defaultOpen: true,
+            },
+            {
+              id: "insider-activity",
+              title: "Insider Activity",
+              content: <InsiderActivityWidget symbol={sym} />,
+              defaultOpen: false,
+            },
+            {
+              id: "etf-exposure",
+              title: "ETF Weighting",
+              content: <EtfExposureWidget symbol={sym} />,
+              defaultOpen: false,
+            },
+            {
+              id: "news",
+              title: "Latest News",
+              content: <TickerNews symbol={sym} />,
+              defaultOpen: true,
+            },
+          ]}
+        />
+      ),
+      defaultLayout: { x: 0, y: 32, w: 8, h: 14, minW: 5, minH: 6 },
     },
   ]
 
@@ -170,7 +270,7 @@ export default async function TickerPage({ params }: { params: Promise<{ symbol:
 
       {/* Webull-style tabbed widget grid — v14 forces new layout with all UW widgets */}
       <div className="mt-2">
-        <AnalysisLayout widgets={widgets} storageKey={`analysis:grid:v18:${sym}`} />
+        <AnalysisLayout widgets={widgets} storageKey={layoutStorageKey} />
       </div>
     </main>
   )

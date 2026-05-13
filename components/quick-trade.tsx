@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { cn } from "@/lib/utils"
 import {
   TrendingUp, TrendingDown, Loader2, CheckCircle2,
@@ -25,9 +25,9 @@ type OrderResult = {
   filled_avg_price: string | null
 }
 
-export function QuickTrade() {
-  const { mode, isPaper, isLive, broker, toggleMode } = useTradingMode()
-  const [ticker, setTicker]           = useState("")
+export function QuickTrade({ initialSymbol = "" }: { initialSymbol?: string }) {
+  const { isPaper, isLive, setMode } = useTradingMode()
+  const [ticker, setTicker]           = useState(initialSymbol)
   const [side, setSide]               = useState<Side>("buy")
   const [orderType, setOrderType]     = useState<OrderType>("market")
   const [sizeMode, setSizeMode]       = useState<SizeMode>("notional")
@@ -39,6 +39,10 @@ export function QuickTrade() {
   const [error, setError]             = useState<string | null>(null)
 
   const tickerRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (!ticker && initialSymbol) setTicker(initialSymbol)
+  }, [initialSymbol, ticker])
 
   // Live quote for entered ticker
   const sym = ticker.trim().toUpperCase()
@@ -223,22 +227,32 @@ export function QuickTrade() {
   // ---- Main form ----
   return (
     <div className="flex h-full flex-col overflow-hidden p-2 gap-2">
-      {/* Trading mode toggle */}
-      <div className="flex items-center justify-between">
+      {/* Broker toggle */}
+      <div className="grid grid-cols-2 gap-1 rounded-md border border-border/40 bg-muted/20 p-1">
         <button
-          onClick={toggleMode}
+          type="button"
+          onClick={() => setMode("paper")}
           className={cn(
-            "flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[9px] font-semibold uppercase transition-all",
-            isPaper
-              ? "bg-amber-500/10 text-amber-500 border border-amber-500/30"
-              : "bg-green-500/10 text-green-500 border border-green-500/30"
+            "flex items-center justify-center gap-1 rounded px-2 py-1 font-mono text-[9px] font-semibold uppercase transition-all",
+            isPaper ? "bg-amber-500/15 text-amber-400" : "text-muted-foreground hover:bg-muted hover:text-foreground",
           )}
         >
-          {isPaper ? <TestTube className="h-2.5 w-2.5" /> : <Zap className="h-2.5 w-2.5" />}
-          {isPaper ? "Paper (Alpaca)" : "Live (Webull)"}
+          <TestTube className="h-2.5 w-2.5" />
+          Alpaca
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode("live")}
+          className={cn(
+            "flex items-center justify-center gap-1 rounded px-2 py-1 font-mono text-[9px] font-semibold uppercase transition-all",
+            isLive ? "bg-green-500/15 text-green-400" : "text-muted-foreground hover:bg-muted hover:text-foreground",
+          )}
+        >
+          <Zap className="h-2.5 w-2.5" />
+          Webull
         </button>
         {isLive && (
-          <span className="text-[9px] text-red-400 font-mono">REAL $</span>
+          <span className="col-span-2 text-center font-mono text-[9px] text-red-400">Live Webull mode uses real money</span>
         )}
       </div>
 
