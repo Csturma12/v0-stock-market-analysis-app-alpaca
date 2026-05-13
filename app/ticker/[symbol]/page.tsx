@@ -170,7 +170,7 @@ export default async function TickerPage({ params }: { params: Promise<{ symbol:
 
       {/* Webull-style tabbed widget grid — v14 forces new layout with all UW widgets */}
       <div className="mt-2">
-        <AnalysisLayout widgets={widgets} storageKey={`analysis:grid:v17:${sym}`} />
+        <AnalysisLayout widgets={widgets} storageKey={`analysis:grid:v18:${sym}`} />
       </div>
     </main>
   )

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react"
 import GridLayout, { WidthProvider, type Layout } from "react-grid-layout"
 import {
   RotateCcw, Lock, Unlock, LayoutGrid, Save, Trash2, ChevronDown, Check, Plus, Eye, EyeOff,
-  LineChart, Brain, Calculator, TrendingUp, Search, Zap,
+  LineChart, Brain, Calculator, TrendingUp, Search, Zap, Minimize2, Maximize2,
 } from "lucide-react"
 import { WidgetFrame } from "./widget-frame"
 import {
@@ -48,6 +48,7 @@ type SavedLayout = {
   name: string
   layout: Layout[]
   hiddenWidgets: string[]
+  collapsedWidgets?: string[]
   createdAt: number
 }
 
@@ -168,6 +169,7 @@ type AnalysisLayoutProps = {
 }
 
 const ALL_HANDLES: Layout["resizeHandles"] = ["s", "n", "e", "w", "se", "sw", "ne", "nw"]
+const COLLAPSED_HEIGHT = 1
 
 export function AnalysisLayout({
   widgets,
@@ -194,6 +196,7 @@ export function AnalysisLayout({
     }))
   )
   const [hiddenWidgets, setHiddenWidgets] = useState<Set<string>>(new Set())
+  const [collapsedWidgets, setCollapsedWidgets] = useState<Set<string>>(new Set())
   const [hydrated, setHydrated] = useState(false)
   const [locked, setLocked] = useState(true) // Default to locked
   const [savedLayouts, setSavedLayouts] = useState<SavedLayout[]>([])
@@ -242,6 +245,12 @@ export function AnalysisLayout({
         setHiddenWidgets(new Set(JSON.parse(hiddenRaw)))
       }
 
+      // Load collapsed widgets
+      const collapsedRaw = localStorage.getItem(`${storageKey}:collapsed`)
+      if (collapsedRaw) {
+        setCollapsedWidgets(new Set(JSON.parse(collapsedRaw)))
+      }
+
       // Load active template
       const templateRaw = localStorage.getItem(`${storageKey}:template`)
       if (templateRaw) {
@@ -262,6 +271,14 @@ export function AnalysisLayout({
     }
   }
 
+  const persistCollapsedWidgets = (collapsed: Set<string>) => {
+    try {
+      localStorage.setItem(`${storageKey}:collapsed`, JSON.stringify([...collapsed]))
+    } catch {
+      /* ignore */
+    }
+  }
+
   const handleHideWidget = (widgetId: string) => {
     const next = new Set(hiddenWidgets)
     next.add(widgetId)
@@ -276,6 +293,29 @@ export function AnalysisLayout({
     persistHiddenWidgets(next)
   }
 
+  const handleToggleCollapsed = (widgetId: string) => {
+    const next = new Set(collapsedWidgets)
+    if (next.has(widgetId)) {
+      next.delete(widgetId)
+    } else {
+      next.add(widgetId)
+    }
+    setCollapsedWidgets(next)
+    persistCollapsedWidgets(next)
+  }
+
+  const handleCollapseAll = () => {
+    const collapsed = new Set(widgets.filter((w) => !hiddenWidgets.has(w.id)).map((w) => w.id))
+    setCollapsedWidgets(collapsed)
+    persistCollapsedWidgets(collapsed)
+  }
+
+  const handleExpandAll = () => {
+    const collapsed = new Set<string>()
+    setCollapsedWidgets(collapsed)
+    persistCollapsedWidgets(collapsed)
+  }
+
   const handleApplyTemplate = (templateKey: string) => {
     const template = TEMPLATE_PRESETS[templateKey]
     if (!template) return
@@ -285,7 +325,9 @@ export function AnalysisLayout({
     if (templateKey === "all") {
       // Show all widgets with default layout
       setHiddenWidgets(new Set())
+      setCollapsedWidgets(new Set())
       persistHiddenWidgets(new Set())
+      persistCollapsedWidgets(new Set())
       setLayout(defaults)
       try {
         localStorage.setItem(storageKey, JSON.stringify(defaults))
@@ -297,7 +339,9 @@ export function AnalysisLayout({
       const toShow = new Set(template.widgets)
       const toHide = new Set(widgets.filter((w) => !toShow.has(w.id)).map((w) => w.id))
       setHiddenWidgets(toHide)
+      setCollapsedWidgets(new Set())
       persistHiddenWidgets(toHide)
+      persistCollapsedWidgets(new Set())
       
       // Apply template-specific layouts if available
       if (template.layouts) {
@@ -327,9 +371,38 @@ export function AnalysisLayout({
   }
 
   const handleChange = (next: Layout[]) => {
-    setLayout(next)
+    const nextById = new Map(next.map((item) => [item.i, item]))
+    const merged = widgets.map((widget) => {
+      const incoming = nextById.get(widget.id)
+      const existing = layout.find((item) => item.i === widget.id)
+      const base = {
+        i: widget.id,
+        ...widget.defaultLayout,
+        ...(existing ?? {}),
+        resizeHandles: ALL_HANDLES,
+      }
+
+      if (!incoming) return base
+
+      if (collapsedWidgets.has(widget.id)) {
+        return {
+          ...base,
+          x: incoming.x,
+          y: incoming.y,
+          w: incoming.w,
+        }
+      }
+
+      return {
+        ...base,
+        ...incoming,
+        resizeHandles: ALL_HANDLES,
+      }
+    })
+
+    setLayout(merged)
     try {
-      localStorage.setItem(storageKey, JSON.stringify(next))
+      localStorage.setItem(storageKey, JSON.stringify(merged))
     } catch {
       /* ignore */
     }
@@ -339,11 +412,13 @@ export function AnalysisLayout({
     setLayout(defaults)
     setActiveLayoutId(null)
     setHiddenWidgets(new Set())
+    setCollapsedWidgets(new Set())
     setActiveTemplate("all")
     try {
       localStorage.removeItem(storageKey)
       localStorage.removeItem(`${storageKey}:active`)
       localStorage.removeItem(`${storageKey}:hidden`)
+      localStorage.removeItem(`${storageKey}:collapsed`)
       localStorage.removeItem(`${storageKey}:template`)
     } catch {
       /* ignore */
@@ -358,6 +433,7 @@ export function AnalysisLayout({
       name: newLayoutName.trim(),
       layout: layout.map((l) => ({ ...l })),
       hiddenWidgets: [...hiddenWidgets],
+      collapsedWidgets: [...collapsedWidgets],
       createdAt: Date.now(),
     }
 
@@ -391,13 +467,16 @@ export function AnalysisLayout({
     
     // Load hidden widgets from saved layout
     const hidden = new Set(savedLayout.hiddenWidgets ?? [])
+    const collapsed = new Set(savedLayout.collapsedWidgets ?? [])
     setHiddenWidgets(hidden)
+    setCollapsedWidgets(collapsed)
     setActiveTemplate("all") // Clear template when loading a saved layout
 
     try {
       localStorage.setItem(storageKey, JSON.stringify(merged))
       localStorage.setItem(`${storageKey}:active`, savedLayout.id)
       persistHiddenWidgets(hidden)
+      persistCollapsedWidgets(collapsed)
     } catch {
       /* ignore */
     }
@@ -424,6 +503,23 @@ export function AnalysisLayout({
   }
 
   const activeLayoutName = savedLayouts.find((l) => l.id === activeLayoutId)?.name ?? "Default"
+  const visibleLayout = useMemo(
+    () =>
+      layout
+        .filter((l) => !hiddenWidgets.has(l.i))
+        .map((l) =>
+          collapsedWidgets.has(l.i)
+            ? {
+                ...l,
+                h: COLLAPSED_HEIGHT,
+                minH: COLLAPSED_HEIGHT,
+                maxH: COLLAPSED_HEIGHT,
+                resizeHandles: [],
+              }
+            : l,
+        ),
+    [layout, hiddenWidgets, collapsedWidgets],
+  )
 
   if (!hydrated) {
     return <div className="min-h-[800px] w-full" aria-hidden />
@@ -618,6 +714,30 @@ export function AnalysisLayout({
           </Button>
         )}
 
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleCollapseAll}
+          title="Collapse all visible widgets"
+          className="h-8 gap-1.5 border-border bg-card font-mono text-xs"
+        >
+          <Minimize2 className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Collapse</span>
+        </Button>
+
+        {collapsedWidgets.size > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExpandAll}
+            title="Expand all widgets"
+            className="h-8 gap-1.5 border-border bg-card font-mono text-xs"
+          >
+            <Maximize2 className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Expand</span>
+          </Button>
+        )}
+
         {/* Instruction text when editing */}
         {!locked && (
           <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground ml-2">
@@ -628,7 +748,7 @@ export function AnalysisLayout({
 
       <ReactGridLayout
         className="analysis-grid"
-        layout={layout.filter((l) => !hiddenWidgets.has(l.i))}
+        layout={visibleLayout}
         cols={12}
         rowHeight={40}
         margin={[2, 2]}
@@ -639,12 +759,18 @@ export function AnalysisLayout({
         preventCollision={true}
         isResizable={!locked}
         isDraggable={!locked}
+        draggableCancel=".widget-frame-action"
         resizeHandles={ALL_HANDLES}
       >
         {widgets
           .filter((w) => !hiddenWidgets.has(w.id))
           .map((w) => {
-            const l = layout.find((lay) => lay.i === w.id) ?? w.defaultLayout
+            const l = visibleLayout.find((lay) => lay.i === w.id) ?? {
+              i: w.id,
+              ...w.defaultLayout,
+              resizeHandles: ALL_HANDLES,
+            }
+            const collapsed = collapsedWidgets.has(w.id)
             return (
               <div 
                 key={w.id} 
@@ -655,6 +781,8 @@ export function AnalysisLayout({
                   title={w.title}
                   showClose={!locked}
                   onClose={() => handleHideWidget(w.id)}
+                  collapsed={collapsed}
+                  onToggleCollapsed={() => handleToggleCollapsed(w.id)}
                 >
                   {w.content}
                 </WidgetFrame>
