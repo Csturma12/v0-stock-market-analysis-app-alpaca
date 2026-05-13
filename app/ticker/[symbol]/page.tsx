@@ -80,6 +80,19 @@ export default async function TickerPage({ params }: { params: Promise<{ symbol:
               },
               defaultOpen: false,
             },
+          ]}
+        />
+      ),
+      defaultLayout: { x: 0, y: 14, w: 8, h: 16, minW: 5, minH: 8 },
+    },
+    {
+      id: "gamma-volatility",
+      title: "Gamma & Volatility",
+      content: (
+        <WidgetGroup
+          id="gamma-volatility"
+          storageKey={layoutStorageKey}
+          items={[
             {
               id: "gamma",
               title: "Gamma / GEX / DEX",
@@ -89,7 +102,7 @@ export default async function TickerPage({ params }: { params: Promise<{ symbol:
                 kind: "data-object",
                 reason: "Gamma is unavailable because FlashAlpha returned no GEX/DEX payload for this ticker.",
               },
-              defaultOpen: false,
+              defaultOpen: true,
             },
             {
               id: "volatility",
@@ -100,12 +113,12 @@ export default async function TickerPage({ params }: { params: Promise<{ symbol:
                 kind: "data-array",
                 reason: "Volatility is unavailable because the IV/HV provider returned no history for this ticker.",
               },
-              defaultOpen: false,
+              defaultOpen: true,
             },
           ]}
         />
       ),
-      defaultLayout: { x: 0, y: 14, w: 8, h: 18, minW: 5, minH: 8 },
+      defaultLayout: { x: 0, y: 30, w: 8, h: 12, minW: 5, minH: 6 },
     },
     {
       id: "support-technicals",
@@ -234,7 +247,7 @@ export default async function TickerPage({ params }: { params: Promise<{ symbol:
           ]}
         />
       ),
-      defaultLayout: { x: 8, y: 28, w: 4, h: 12, minW: 3, minH: 7 },
+      defaultLayout: { x: 8, y: 38, w: 4, h: 12, minW: 3, minH: 7 },
     },
     {
       id: "research-intel",
