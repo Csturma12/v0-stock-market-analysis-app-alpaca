@@ -13,6 +13,7 @@ type SearchResult = {
   name: string
   primaryExchange: string
   type: string
+  tvSymbol?: string
 }
 
 function TradingViewEmbed({ symbol }: { symbol: string }) {
@@ -63,6 +64,7 @@ export function HomeMarketChart() {
   const [symbol, setSymbol] = useState("SPY")
   const [query, setQuery] = useState("")
   const [debounced, setDebounced] = useState("")
+  const [selectedLabel, setSelectedLabel] = useState("SPY")
 
   useEffect(() => {
     const t = window.setTimeout(() => setDebounced(query.trim()), 200)
@@ -79,11 +81,17 @@ export function HomeMarketChart() {
 
   const symbolButtons = useMemo(() => DEFAULT_SYMBOLS, [])
 
+  function applySelection(ticker: string, label?: string, tvSymbol?: string) {
+    setSymbol((tvSymbol || ticker).toUpperCase())
+    setSelectedLabel((label || ticker).toUpperCase())
+    setQuery("")
+  }
+
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border/30 px-2 py-1.5">
         <div className="flex items-center gap-1.5">
-          <span className="font-mono text-lg font-bold tabular-nums">{symbol}</span>
+          <span className="font-mono text-lg font-bold tabular-nums">{selectedLabel}</span>
           <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">TradingView</span>
         </div>
         <div className="flex items-center gap-1">
@@ -91,7 +99,10 @@ export function HomeMarketChart() {
             <button
               key={s}
               type="button"
-              onClick={() => setSymbol(s)}
+              onClick={() => {
+                setSymbol(s)
+                setSelectedLabel(s)
+              }}
               className={cn(
                 "rounded border px-1.5 py-0.5 font-mono text-[10px] transition-colors",
                 symbol === s ? "border-primary bg-primary/10 text-primary" : "border-border bg-muted/30 text-muted-foreground hover:text-foreground",
@@ -106,9 +117,19 @@ export function HomeMarketChart() {
       <div className="flex shrink-0 items-center gap-2 border-b border-border/20 px-2 py-2">
         <div className="relative min-w-0 flex-1">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-          <input
-            value={query}
+            <input
+              value={query}
             onChange={(event) => setQuery(event.target.value.toUpperCase())}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter") return
+              event.preventDefault()
+              const pick = results[0]
+              if (pick) {
+                applySelection(pick.ticker, pick.ticker, pick.tvSymbol)
+              } else if (query.trim()) {
+                applySelection(query.trim().toUpperCase())
+              }
+            }}
             placeholder="Search any ticker..."
             className="h-8 w-full rounded border border-border bg-background pl-8 pr-3 font-mono text-xs outline-none focus:border-primary/70"
           />
@@ -124,10 +145,7 @@ export function HomeMarketChart() {
             <button
               key={r.ticker}
               type="button"
-              onClick={() => {
-                setSymbol(r.ticker.toUpperCase())
-                setQuery("")
-              }}
+              onClick={() => applySelection(r.ticker, r.ticker, r.tvSymbol)}
               className="rounded border border-border bg-muted/20 px-2 py-1 font-mono text-[10px] hover:border-primary/60 hover:text-foreground"
               title={r.name}
             >

@@ -88,6 +88,11 @@ export function OptionContractDrillDownWidget({ symbol }: { symbol?: string }) {
       .slice(0, 6)
   }, [tickerFlow])
 
+  const activeStrike = useMemo(() => {
+    const match = tickerFlow?.alerts.find((a) => a.optionChain.toUpperCase() === activeContract)
+    return match?.strike ?? null
+  }, [activeContract, tickerFlow])
+
   useEffect(() => {
     setContractId("")
     setActiveContract(null)
@@ -199,6 +204,7 @@ export function OptionContractDrillDownWidget({ symbol }: { symbol?: string }) {
                   <thead className="sticky top-0 bg-background">
                     <tr className="text-left text-muted-foreground border-b">
                       <th className="py-1 font-medium">Time</th>
+                      <th className="py-1 font-medium text-right">Strike</th>
                       <th className="py-1 font-medium text-right">Price</th>
                       <th className="py-1 font-medium text-right">Size</th>
                       <th className="py-1 font-medium text-right">Premium</th>
@@ -209,6 +215,7 @@ export function OptionContractDrillDownWidget({ symbol }: { symbol?: string }) {
                     {flowData.slice(0, 50).map((t, i) => (
                       <tr key={i} className="border-b border-border/50">
                         <td className="py-1">{formatTime(t.time)}</td>
+                        <td className="py-1 text-right">{activeStrike !== null ? `$${activeStrike.toFixed(0)}` : "—"}</td>
                         <td className="py-1 text-right">{formatCurrency(t.price)}</td>
                         <td className="py-1 text-right">{formatNumber(t.size)}</td>
                         <td className="py-1 text-right">{formatCurrency(t.premium)}</td>

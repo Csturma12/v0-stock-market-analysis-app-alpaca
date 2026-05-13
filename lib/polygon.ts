@@ -188,6 +188,7 @@ export type TickerSearchResult = {
   primaryExchange: string
   type: string
   active: boolean
+  tvSymbol: string
 }
 
 export type OHLCV = {
@@ -230,22 +231,55 @@ export async function searchTickers(query: string, limit = 10): Promise<TickerSe
   try {
     const data = await poly<{ results?: any[] }>(`/v3/reference/tickers`, {
       search: q,
-      market: "stocks",
       active: "true",
       limit,
       order: "desc",
       sort: "ticker",
     })
-    return (
-      data.results?.map((r) => ({
-        ticker: r.ticker,
-        name: r.name ?? "",
-        market: r.market ?? "",
-        primaryExchange: r.primary_exchange ?? "",
-        type: r.type ?? "",
-        active: !!r.active,
-      })) ?? []
-    )
+    const exchangeMap: Record<string, string> = {
+      XNAS: "NASDAQ",
+      XNYS: "NYSE",
+      ARCX: "AMEX",
+      BATS: "BATS",
+      IEX: "IEX",
+      XASE: "AMEX",
+      XNCM: "NASDAQ",
+      OTC: "OTC",
+    }
+    const normalizeExchange = (exchange: string) => {
+      const cleaned = exchangeMap[exchange.toUpperCase()] ?? exchange.toUpperCase()
+      return cleaned.replace(/^NYSE ARCA$/, "NYSEARCA").replace(/^NYSE ARCA$/i, "NYSEARCA")
+    }
+    const toTvSymbol = (ticker: string, exchange: string) => {
+      const ex = normalizeExchange(exchange)
+      return ex ? `${ex}:${ticker}` : ticker
+    }
+    const normalized = (data.results ?? []).map((r) => ({
+      ticker: r.ticker,
+      name: r.name ?? "",
+      market: r.market ?? "",
+      primaryExchange: r.primary_exchange ?? "",
+      type: r.type ?? "",
+      active: !!r.active,
+      tvSymbol: toTvSymbol(r.ticker, r.primary_exchange ?? ""),
+    }))
+
+    const exact = q.toUpperCase()
+    return normalized.sort((a, b) => {
+      const aExact = a.ticker.toUpperCase() === exact ? 0 : 1
+      const bExact = b.ticker.toUpperCase() === exact ? 0 : 1
+      if (aExact !== bExact) return aExact - bExact
+
+      const aStarts = a.ticker.toUpperCase().startsWith(exact) ? 0 : 1
+      const bStarts = b.ticker.toUpperCase().startsWith(exact) ? 0 : 1
+      if (aStarts !== bStarts) return aStarts - bStarts
+
+      const aName = a.name.toUpperCase().includes(exact) ? 0 : 1
+      const bName = b.name.toUpperCase().includes(exact) ? 0 : 1
+      if (aName !== bName) return aName - bName
+
+      return a.ticker.localeCompare(b.ticker)
+    }).slice(0, limit)
   } catch {
     return []
   }
@@ -341,11 +375,37 @@ export type AnalystRating = {
 
 export async function getAnalystRatings(ticker: string): Promise<AnalystRating | null> {
   try {
-    // Polygon doesn't have direct analyst ratings, but we can use ticker details
-    // For now, return null - UW is better for this
-    return null
+    const data = await poly<{ results?: any[] }>(`/benzinga/v1/analyst-insights`, {
+      ticker,
+      limit: 50,
+      sort: "last_updated.desc",
+    })
+    const latest = data.results?.[0]
+    if (!latest) return null
+    return {
+      ticker,
+      targetPrice: latest.price_target ?? null,
+      rating: latest.rating ?? null,
+      ratingBuy: 0,
+      ratingSell: 0,
+      ratingHold: 0,
+      ratingStrongBuy: 0,
+      ratingStrongSell: 0,
+      updated: latest.last_updated ?? latest.date ?? "",
+    }
   } catch {
     return null
+  }
+}
+
+export async function getAnalystConsensus(ticker: string) {
+  try {
+    const data = await poly<{ results?: any[] }>(`/benzinga/v1/consensus-ratings/${ticker}`, {
+      limit: 10,
+    })
+    return data.results ?? []
+  } catch {
+    return []
   }
 }
 

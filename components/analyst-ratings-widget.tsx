@@ -27,6 +27,13 @@ type Consensus = {
   strongSell?: number
 }
 
+type AnalystApiResponse = {
+  data?: Rating[]
+  consensus?: Consensus[]
+  priceTarget?: { targetMean?: number | null; targetHigh?: number | null; targetLow?: number | null } | null
+  source?: string
+}
+
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 export function AnalystRatingsWidget({ symbol }: Props) {
@@ -34,7 +41,7 @@ export function AnalystRatingsWidget({ symbol }: Props) {
   const { data: consensusData } = useSWR<{ recommendations?: Consensus[] }>(`/api/ticker/${symbol}`, fetcher, {
     refreshInterval: 600_000,
   })
-  const { data, isLoading, error } = useSWR<{ data: Rating[] }>(
+  const { data, isLoading, error } = useSWR<AnalystApiResponse>(
     `/api/uw/ticker/${symbol}/analysts`,
     fetcher,
     { refreshInterval: 600_000 }
@@ -77,6 +84,11 @@ export function AnalystRatingsWidget({ symbol }: Props) {
         </Tabs>
       }
       >
+      <div className="mb-2 flex items-center justify-between text-[10px] uppercase tracking-widest text-muted-foreground">
+        <span>Source</span>
+        <span>{data?.source ?? "finnhub"}</span>
+      </div>
+
       {rows.length === 0 && consensus && (
         <div className="mb-3 rounded border border-border/50 bg-muted/30 p-2 text-xs">
           <div className="flex items-center justify-between gap-2">
@@ -89,6 +101,18 @@ export function AnalystRatingsWidget({ symbol }: Props) {
             <ConsensusCell label="Hold" value={consensus.hold ?? 0} total={totalConsensus} />
             <ConsensusCell label="Sell" value={consensus.sell ?? 0} total={totalConsensus} />
             <ConsensusCell label="Strong Sell" value={consensus.strongSell ?? 0} total={totalConsensus} />
+          </div>
+        </div>
+      )}
+
+      {rows.length === 0 && !consensus && data?.priceTarget?.targetMean != null && (
+        <div className="mb-3 rounded border border-border/50 bg-muted/30 p-2 text-xs">
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-medium text-muted-foreground">Price target</span>
+            <span className="font-mono text-[10px] text-muted-foreground">finnhub</span>
+          </div>
+          <div className="mt-2 font-mono text-sm">
+            {formatCurrency(data.priceTarget.targetMean)}
           </div>
         </div>
       )}
@@ -135,7 +159,7 @@ export function AnalystRatingsWidget({ symbol }: Props) {
             {filtered.length === 0 && (
               <tr>
                 <td colSpan={4} className="py-6 text-center text-muted-foreground">
-                  No Unusual Whales analyst rows returned for this ticker right now.
+                  No analyst rows returned for this ticker right now.
                 </td>
               </tr>
             )}

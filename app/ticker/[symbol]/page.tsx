@@ -10,7 +10,6 @@ import { QuickTrade } from "@/components/quick-trade"
 import { KeyMetricsDisplay } from "@/components/key-metrics-display"
 import { TickerSupportResistance } from "@/components/ticker-support-resistance"
 import { TickerCatalystsRisks } from "@/components/ticker-catalysts-risks"
-import { TickerNews } from "@/components/ticker-news"
 import { EquityBlockTradesWidget } from "@/components/equity-block-trades-widget"
 import { OptionsBlockTradesWidget } from "@/components/options-block-trades-widget"
 import { VolatilityWidget } from "@/components/volatility-widget"
@@ -30,7 +29,7 @@ export const dynamic = "force-dynamic"
 export default async function TickerPage({ params }: { params: Promise<{ symbol: string }> }) {
   const { symbol } = await params
   const sym = symbol.toUpperCase()
-  const layoutStorageKey = `analysis:grid:v19:${sym}`
+  const layoutStorageKey = `analysis:grid:v20:${sym}`
 
   const widgets: Widget[] = [
     {
@@ -183,13 +182,19 @@ export default async function TickerPage({ params }: { params: Promise<{ symbol:
       defaultLayout: { x: 8, y: 16, w: 4, h: 10, minW: 3, minH: 6 },
     },
     {
-      id: "calendar-news",
-      title: "Economic Calendar & Latest News",
+      id: "earnings-calendar",
+      title: "Earnings & Economic Calendar",
       content: (
         <WidgetGroup
-          id="calendar-news"
+          id="earnings-calendar"
           storageKey={layoutStorageKey}
           items={[
+            {
+              id: "earnings-history",
+              title: "Earnings",
+              content: <EarningsHistoryWidget symbol={sym} />,
+              defaultOpen: true,
+            },
             {
               id: "economic-calendar",
               title: "Economic Calendar",
@@ -201,16 +206,16 @@ export default async function TickerPage({ params }: { params: Promise<{ symbol:
               },
               defaultOpen: true,
             },
-            {
-              id: "latest-news",
-              title: "Latest News",
-              content: <TickerNews symbol={sym} />,
-              defaultOpen: true,
-            },
           ]}
         />
       ),
       defaultLayout: { x: 8, y: 26, w: 4, h: 10, minW: 3, minH: 6 },
+    },
+    {
+      id: "catalysts-risks",
+      title: "Catalysts & Risks",
+      content: <TickerCatalystsRisks symbol={sym} />,
+      defaultLayout: { x: 8, y: 38, w: 4, h: 8, minW: 3, minH: 6 },
     },
     {
       id: "execution",
@@ -238,16 +243,10 @@ export default async function TickerPage({ params }: { params: Promise<{ symbol:
               content: <TickerPatterns symbol={sym} />,
               defaultOpen: false,
             },
-            {
-              id: "catalysts",
-              title: "Catalysts & Risks",
-              content: <TickerCatalystsRisks symbol={sym} />,
-              defaultOpen: false,
-            },
           ]}
         />
       ),
-      defaultLayout: { x: 8, y: 38, w: 4, h: 12, minW: 3, minH: 7 },
+      defaultLayout: { x: 8, y: 46, w: 4, h: 10, minW: 3, minH: 6 },
     },
     {
       id: "research-intel",
