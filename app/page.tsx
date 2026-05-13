@@ -70,7 +70,7 @@ export default function HomePage() {
 
       {/* Adjustable widget grid */}
       <div className="mx-auto max-w-[1600px] px-4 py-3">
-        <AnalysisLayout widgets={widgets} storageKey="home:grid:v19" />
+        <AnalysisLayout widgets={widgets} storageKey="home:grid:v19" defaultTemplate="market-search" />
       </div>
     </main>
   )

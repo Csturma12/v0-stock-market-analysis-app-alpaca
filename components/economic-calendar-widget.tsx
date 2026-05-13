@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import useSWR from "swr"
 import { WidgetFrame } from "./widget-frame"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -22,6 +22,8 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 export function EconomicCalendarWidget() {
   const [filter, setFilter] = useState<"all" | "high">("all")
+  const [canScroll, setCanScroll] = useState(false)
+  const contentRef = useRef<HTMLDivElement>(null)
   const { data, isLoading, error } = useSWR<{ data: Event[] }>(
     "/api/uw/economic-calendar",
     fetcher,
@@ -45,6 +47,21 @@ export function EconomicCalendarWidget() {
   }
   const dates = Object.keys(grouped).sort()
 
+  useEffect(() => {
+    const el = contentRef.current
+    if (!el) return
+
+    const update = () => {
+      setCanScroll(el.scrollHeight > el.clientHeight + 8)
+    }
+
+    update()
+
+    const observer = new ResizeObserver(update)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [dates.length, filter, isLoading, error])
+
   return (
     <WidgetFrame
       title="Economic Calendar"
@@ -59,7 +76,10 @@ export function EconomicCalendarWidget() {
         </Tabs>
       }
     >
-      <div className="max-h-[300px] overflow-y-auto space-y-3 text-xs">
+      <div
+        ref={contentRef}
+        className={cn("space-y-3 text-xs", canScroll ? "max-h-full overflow-y-auto" : "overflow-visible")}
+      >
         {dates.length === 0 && <p className="text-muted-foreground text-center py-4">No events</p>}
         {dates.map((date) => (
           <div key={date}>

@@ -160,12 +160,28 @@ const TEMPLATE_PRESETS: Record<string, {
       "options-blocks": { x: 0, y: 24, w: 12, h: 10 },
     },
   },
+  "market-search": {
+    name: "Main Market Search Page",
+    icon: Search,
+    description: "Market recap, search, scanners, watchlist, and news",
+    widgets: ["accounts", "market-update", "hot-stocks", "watchlist", "scanners", "economic-calendar", "market-news"],
+    layouts: {
+      "accounts": { x: 0, y: 0, w: 3, h: 7 },
+      "market-update": { x: 3, y: 0, w: 6, h: 7 },
+      "hot-stocks": { x: 9, y: 0, w: 3, h: 12 },
+      "watchlist": { x: 0, y: 7, w: 5, h: 11 },
+      "scanners": { x: 5, y: 7, w: 4, h: 11 },
+      "economic-calendar": { x: 9, y: 12, w: 3, h: 6 },
+      "market-news": { x: 0, y: 18, w: 12, h: 8 },
+    },
+  },
 }
 
 type AnalysisLayoutProps = {
   widgets: Widget[]
   /** localStorage key — bump version when defaults change to invalidate */
   storageKey?: string
+  defaultTemplate?: keyof typeof TEMPLATE_PRESETS
 }
 
 const ALL_HANDLES: Layout["resizeHandles"] = ["s", "n", "e", "w", "se", "sw", "ne", "nw"]
@@ -174,6 +190,7 @@ const COLLAPSED_HEIGHT = 1
 export function AnalysisLayout({
   widgets,
   storageKey = "analysis:grid:v1",
+  defaultTemplate = "all",
 }: AnalysisLayoutProps) {
   const savedLayoutsKey = `${storageKey}:saved`
 
@@ -201,7 +218,7 @@ export function AnalysisLayout({
   const [locked, setLocked] = useState(true) // Default to locked
   const [savedLayouts, setSavedLayouts] = useState<SavedLayout[]>([])
   const [activeLayoutId, setActiveLayoutId] = useState<string | null>(null)
-  const [activeTemplate, setActiveTemplate] = useState<string>("all")
+  const [activeTemplate, setActiveTemplate] = useState<string>(defaultTemplate)
   const [saveDialogOpen, setSaveDialogOpen] = useState(false)
   const [newLayoutName, setNewLayoutName] = useState("")
 
@@ -255,12 +272,26 @@ export function AnalysisLayout({
       const templateRaw = localStorage.getItem(`${storageKey}:template`)
       if (templateRaw) {
         setActiveTemplate(templateRaw)
+      } else if (defaultTemplate && TEMPLATE_PRESETS[defaultTemplate]) {
+        setActiveTemplate(defaultTemplate)
       }
     } catch {
       /* ignore */
     }
     setHydrated(true)
   }, [widgets, storageKey, savedLayoutsKey])
+
+  useEffect(() => {
+    if (!hydrated) return
+    try {
+      const templateRaw = localStorage.getItem(`${storageKey}:template`)
+      if (!templateRaw && defaultTemplate && TEMPLATE_PRESETS[defaultTemplate]) {
+        handleApplyTemplate(defaultTemplate)
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [defaultTemplate, hydrated, storageKey])
 
   // Persist hidden widgets
   const persistHiddenWidgets = (hidden: Set<string>) => {
