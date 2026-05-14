@@ -132,17 +132,17 @@ const TEMPLATE_PRESETS: Record<string, {
   "research": {
     name: "Market Research",
     icon: Search,
-    description: "ETF exposure, insider activity, and research",
-    widgets: ["chart", "research-intel", "fundamentals-calendar", "execution", "technical-fundamentals", "ai-trade", "news", "etf-exposure", "insider-activity", "analyst-ratings", "fundamentals", "catalysts", "earnings-history"],
+    description: "News, mergers, analyst changes, hot stocks, and research",
+    widgets: ["chart", "research-intel", "earnings-calendar", "execution", "news", "hot-stocks", "analyst-ratings", "fundamentals", "catalysts", "earnings-history", "insider-activity", "etf-exposure"],
     layouts: {
       "chart": { x: 0, y: 0, w: 6, h: 10 },
       "news": { x: 6, y: 0, w: 6, h: 10 },
-      "etf-exposure": { x: 0, y: 10, w: 4, h: 10 },
-      "insider-activity": { x: 4, y: 10, w: 4, h: 10 },
-      "analyst-ratings": { x: 8, y: 10, w: 4, h: 10 },
-      "fundamentals": { x: 0, y: 20, w: 4, h: 8 },
-      "catalysts": { x: 4, y: 20, w: 4, h: 8 },
-      "earnings-history": { x: 8, y: 20, w: 4, h: 8 },
+      "hot-stocks": { x: 0, y: 10, w: 3, h: 10 },
+      "analyst-ratings": { x: 3, y: 10, w: 5, h: 10 },
+      "fundamentals": { x: 8, y: 10, w: 4, h: 10 },
+      "earnings-calendar": { x: 0, y: 20, w: 6, h: 9 },
+      "catalysts": { x: 6, y: 20, w: 3, h: 9 },
+      "insider-activity": { x: 9, y: 20, w: 3, h: 9 },
     },
   },
   "daytrading": {
@@ -186,6 +186,9 @@ type AnalysisLayoutProps = {
 
 const ALL_HANDLES: Layout["resizeHandles"] = ["s", "n", "e", "w", "se", "sw", "ne", "nw"]
 const COLLAPSED_HEIGHT = 1
+const ROW_HEIGHT = 40
+const ROW_GAP = 2
+const GRID_ROW_PX = ROW_HEIGHT + ROW_GAP
 
 export function AnalysisLayout({
   widgets,
@@ -221,6 +224,39 @@ export function AnalysisLayout({
   const [activeTemplate, setActiveTemplate] = useState<string>(defaultTemplate)
   const [saveDialogOpen, setSaveDialogOpen] = useState(false)
   const [newLayoutName, setNewLayoutName] = useState("")
+
+  useEffect(() => {
+    const onGroupResize = (event: Event) => {
+      const detail = (event as CustomEvent<{ groupId: string; height: number }>).detail
+      if (!detail?.groupId || !detail.height) return
+
+      const targetId = detail.groupId
+      const target = layout.find((item) => item.i === targetId)
+      if (!target) return
+
+      const neededRows = Math.max(
+        target.minH ?? 1,
+        Math.ceil(detail.height / GRID_ROW_PX),
+      )
+
+      setLayout((current) => {
+        const next = current.map((item) =>
+          item.i === targetId && item.h < neededRows
+            ? { ...item, h: neededRows }
+            : item,
+        )
+        try {
+          localStorage.setItem(storageKey, JSON.stringify(next))
+        } catch {
+          /* ignore */
+        }
+        return next
+      })
+    }
+
+    window.addEventListener("widget-group-resize", onGroupResize as EventListener)
+    return () => window.removeEventListener("widget-group-resize", onGroupResize as EventListener)
+  }, [layout, storageKey])
 
   // Load saved layout on mount
   useEffect(() => {
