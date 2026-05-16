@@ -18,7 +18,10 @@ import { EarningsHistoryWidget } from "@/components/earnings-history-widget"
 import { FundamentalsWidget } from "@/components/fundamentals-widget"
 import { AnalystRatingsWidget } from "@/components/analyst-ratings-widget"
 import { InsiderActivityWidget } from "@/components/insider-activity-widget"
+import { CongressionalTradesWidget } from "@/components/congressional-trades-widget"
 import { EtfExposureWidget } from "@/components/etf-exposure-widget"
+import { MarketInsiderWidget } from "@/components/market-insider-widget"
+import { CryptoWhalesWidget } from "@/components/crypto-whales-widget"
 import { OptionContractDrillDownWidget } from "@/components/option-contract-drill-down-widget"
 import { GexWidget } from "@/components/gex-widget"
 import { AnalysisLayout, type Widget } from "@/components/analysis-layout"
@@ -278,6 +281,42 @@ export default async function TickerPage({ params }: { params: Promise<{ symbol:
         />
       ),
       defaultLayout: { x: 0, y: 32, w: 8, h: 14, minW: 5, minH: 6 },
+    },
+    {
+      id: "smart-money",
+      title: "Smart Money & Blockchain",
+      content: (
+        <WidgetGroup
+          id="smart-money"
+          storageKey={layoutStorageKey}
+          items={[
+            {
+              id: "market-insider",
+              title: "Market-Wide Insider Trades",
+              content: <MarketInsiderWidget />,
+              defaultOpen: true,
+            },
+            {
+              id: "congressional-trades",
+              title: "Congressional Trades",
+              content: <CongressionalTradesWidget symbol={sym} />,
+              availability: {
+                url: `/api/ticker/${sym}/congressional-trades`,
+                kind: "data-array",
+                reason: "Congressional trades are unavailable because the provider returned no recent filings for this ticker.",
+              },
+              defaultOpen: true,
+            },
+            {
+              id: "crypto-whales",
+              title: "Crypto Whales",
+              content: <CryptoWhalesWidget />,
+              defaultOpen: false,
+            },
+          ]}
+        />
+      ),
+      defaultLayout: { x: 0, y: 46, w: 8, h: 12, minW: 5, minH: 6 },
     },
   ]
 

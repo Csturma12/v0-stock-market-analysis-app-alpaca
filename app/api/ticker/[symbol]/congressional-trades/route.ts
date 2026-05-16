@@ -5,9 +5,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ symbol:
   const { symbol } = await params
   try {
     const trades = await getCongressionalTrades(symbol)
-    return NextResponse.json({ trades })
+    return NextResponse.json({ data: trades, trades })
   } catch (err) {
     console.log("[v0] congressional trades route error", err)
-    return NextResponse.json({ trades: [] })
+    return NextResponse.json({ data: [], trades: [] })
   }
 }
