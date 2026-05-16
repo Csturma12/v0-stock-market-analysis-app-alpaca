@@ -26,9 +26,33 @@ export function readWatchlists(): Watchlists {
   }
 }
 
+export async function syncWatchlistsFromServer() {
+  try {
+    const res = await fetch("/api/preferences", { cache: "no-store" })
+    if (!res.ok) return null
+    const json = (await res.json()) as { preferences?: { watchlists?: Watchlists } }
+    return json.preferences?.watchlists ?? null
+  } catch {
+    return null
+  }
+}
+
+export async function persistWatchlistsToServer(watchlists: Watchlists) {
+  try {
+    await fetch("/api/preferences", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ watchlists }),
+    })
+  } catch {
+    /* ignore */
+  }
+}
+
 export function writeWatchlists(watchlists: Watchlists) {
   window.localStorage.setItem(WATCHLIST_STORAGE_KEY, JSON.stringify(watchlists))
   window.dispatchEvent(new CustomEvent("watchlists-updated", { detail: watchlists }))
+  void persistWatchlistsToServer(watchlists)
 }
 
 export function addTickerToWatchlist(symbol: string, listName = "Main") {

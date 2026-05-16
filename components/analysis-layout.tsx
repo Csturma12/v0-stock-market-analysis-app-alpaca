@@ -29,6 +29,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { loadDashboardPreferences, saveDashboardPreferences } from "@/lib/preferences"
 
 import "react-grid-layout/css/styles.css"
 import "react-resizable/css/styles.css"
@@ -225,6 +226,15 @@ export function AnalysisLayout({
   const [saveDialogOpen, setSaveDialogOpen] = useState(false)
   const [newLayoutName, setNewLayoutName] = useState("")
 
+  const persistPreferences = (nextLayout: Layout[] | null = null, nextHidden = hiddenWidgets, nextCollapsed = collapsedWidgets, nextTemplate = activeTemplate) => {
+    void saveDashboardPreferences({
+      layouts: { [storageKey]: nextLayout ?? layout },
+      hiddenWidgets: [...nextHidden],
+      collapsedWidgets: [...nextCollapsed],
+      templates: { [storageKey]: nextTemplate },
+    })
+  }
+
   useEffect(() => {
     const onGroupResize = (event: Event) => {
       const detail = (event as CustomEvent<{ groupId: string; height: number }>).detail
@@ -247,6 +257,7 @@ export function AnalysisLayout({
         )
         try {
           localStorage.setItem(storageKey, JSON.stringify(next))
+          persistPreferences(next)
         } catch {
           /* ignore */
         }
@@ -316,6 +327,16 @@ export function AnalysisLayout({
     }
     setHydrated(true)
   }, [widgets, storageKey, savedLayoutsKey])
+
+  useEffect(() => {
+    void loadDashboardPreferences().then((result) => {
+      const saved = result?.preferences?.layouts?.[storageKey]
+      if (Array.isArray(saved)) {
+        const merged = saved.map((item) => ({ ...(item as Layout), resizeHandles: ALL_HANDLES }))
+        setLayout(merged)
+      }
+    })
+  }, [storageKey])
 
   useEffect(() => {
     if (!hydrated) return
@@ -398,6 +419,7 @@ export function AnalysisLayout({
       setLayout(defaults)
       try {
         localStorage.setItem(storageKey, JSON.stringify(defaults))
+        persistPreferences(defaults, new Set(), new Set(), "all")
       } catch {
         /* ignore */
       }
@@ -424,6 +446,7 @@ export function AnalysisLayout({
         setLayout(newLayout)
         try {
           localStorage.setItem(storageKey, JSON.stringify(newLayout))
+          persistPreferences(newLayout, toHide, new Set(), templateKey)
         } catch {
           /* ignore */
         }
@@ -470,6 +493,7 @@ export function AnalysisLayout({
     setLayout(merged)
     try {
       localStorage.setItem(storageKey, JSON.stringify(merged))
+      persistPreferences(merged)
     } catch {
       /* ignore */
     }
@@ -487,6 +511,7 @@ export function AnalysisLayout({
       localStorage.removeItem(`${storageKey}:hidden`)
       localStorage.removeItem(`${storageKey}:collapsed`)
       localStorage.removeItem(`${storageKey}:template`)
+      persistPreferences(defaults, new Set(), new Set(), "all")
     } catch {
       /* ignore */
     }
@@ -511,6 +536,7 @@ export function AnalysisLayout({
     try {
       localStorage.setItem(savedLayoutsKey, JSON.stringify(updated))
       localStorage.setItem(`${storageKey}:active`, newLayout.id)
+      persistPreferences(layout, hiddenWidgets, collapsedWidgets, activeTemplate)
     } catch {
       /* ignore */
     }
@@ -544,6 +570,7 @@ export function AnalysisLayout({
       localStorage.setItem(`${storageKey}:active`, savedLayout.id)
       persistHiddenWidgets(hidden)
       persistCollapsedWidgets(collapsed)
+      persistPreferences(merged, hidden, collapsed, "all")
     } catch {
       /* ignore */
     }

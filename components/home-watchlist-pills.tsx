@@ -22,6 +22,7 @@ import {
   DEFAULT_WATCHLISTS,
   readWatchlists,
   removeTickerFromWatchlist,
+  syncWatchlistsFromServer,
   type Watchlists,
 } from "./watchlist-storage"
 
@@ -53,6 +54,11 @@ export function HomeWatchlistPills() {
 
   useEffect(() => {
     setWatchlists(readWatchlists())
+    void syncWatchlistsFromServer().then((serverWatchlists) => {
+      if (serverWatchlists && Object.keys(serverWatchlists).length) {
+        setWatchlists(serverWatchlists)
+      }
+    })
     const handler = (event: Event) => setWatchlists((event as CustomEvent<Watchlists>).detail ?? readWatchlists())
     window.addEventListener("watchlists-updated", handler)
     return () => window.removeEventListener("watchlists-updated", handler)
