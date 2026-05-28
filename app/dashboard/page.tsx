@@ -54,16 +54,18 @@ const defaultLayout: LayoutItem[] = [
   { i: "commodities", x: 0, y: 9, w: 12, h: 2, minW: 4, minH: 2 },
 ]
 
-// Commodities data
-const COMMODITIES = [
-  { symbol: "GC=F", name: "Gold", icon: "🥇" },
-  { symbol: "SI=F", name: "Silver", icon: "🥈" },
-  { symbol: "CL=F", name: "Crude Oil", icon: "🛢️" },
-  { symbol: "NG=F", name: "Natural Gas", icon: "🔥" },
-  { symbol: "HG=F", name: "Copper", icon: "🔶" },
-  { symbol: "BTC-USD", name: "Bitcoin", icon: "₿" },
-  { symbol: "ETH-USD", name: "Ethereum", icon: "Ξ" },
-]
+// Commodities data - now fetched from Polygon API
+// (kept for icon mapping only)
+const COMMODITY_ICONS: Record<string, string> = {
+  "Gold": "Au",
+  "Silver": "Ag", 
+  "Crude Oil": "OIL",
+  "Natural Gas": "NG",
+  "Copper": "Cu",
+  "Bitcoin": "BTC",
+  "Ethereum": "ETH",
+  "Platinum": "Pt",
+}
 
 function Widget({ title, children, className = "" }: { title: string; children: React.ReactNode; className?: string }) {
   return (
@@ -118,21 +120,36 @@ function AccountWidget() {
 }
 
 function SignalsWidget() {
-  const signals = [
-    { symbol: "AAPL", pattern: "Pullback", confidence: 72, action: "BUY" },
-    { symbol: "NVDA", pattern: "Momentum", confidence: 81, action: "BUY" },
-    { symbol: "TSLA", pattern: "No Setup", confidence: 44, action: "NO_TRADE" },
-    { symbol: "META", pattern: "Reversal", confidence: 68, action: "SELL" },
-    { symbol: "MSFT", pattern: "Breakout", confidence: 76, action: "BUY" },
-  ]
+  const { data, isLoading } = useSWR("/api/dashboard/signals", fetcher, { refreshInterval: 10000 })
+  const signals = data?.signals || []
+
+  if (isLoading && signals.length === 0) {
+    return (
+      <div className="flex flex-col gap-2">
+        <p className="text-xs text-muted-foreground mb-1">Loading UW flow signals...</p>
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="h-12 rounded-md bg-muted/30 animate-pulse" />
+        ))}
+      </div>
+    )
+  }
+
+  if (signals.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+        <Activity className="h-8 w-8 mb-2 opacity-50" />
+        <p className="text-xs">No flow signals right now</p>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-xs text-muted-foreground mb-1">Scan, click, decide.</p>
-      {signals.map((s) => (
+      <p className="text-xs text-muted-foreground mb-1">UW Flow Alerts - Scan, click, decide.</p>
+      {signals.slice(0, 8).map((s: any, i: number) => (
         <Link
-          key={s.symbol}
-          href={`/ticker/${s.symbol}`}
+          key={`${s.ticker}-${i}`}
+          href={`/ticker/${s.ticker}`}
           className="flex items-center justify-between p-2 rounded-md border border-border hover:bg-muted/50 transition-colors"
         >
           <div className="flex items-center gap-2">
@@ -140,8 +157,8 @@ function SignalsWidget() {
             {s.action === "SELL" && <TrendingDown className="h-3 w-3 text-red-500" />}
             {s.action === "NO_TRADE" && <Minus className="h-3 w-3 text-muted-foreground" />}
             <div>
-              <span className="font-semibold text-sm">{s.symbol}</span>
-              <p className="text-[10px] text-muted-foreground">{s.pattern}</p>
+              <span className="font-semibold text-sm">{s.ticker}</span>
+              <p className="text-[10px] text-muted-foreground">{s.setup}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -278,17 +295,35 @@ function ThemesWidget() {
 }
 
 function CommoditiesWidget() {
+  const { data, isLoading } = useSWR("/api/dashboard/commodities", fetcher, { refreshInterval: 60000 })
+  const commodities = data?.commodities || []
+
+  if (isLoading && commodities.length === 0) {
+    return (
+      <div className="flex gap-3 overflow-x-auto pb-1">
+        {[1, 2, 3, 4, 5, 6].map((i) => (
+          <div key={i} className="h-12 w-24 rounded-lg bg-muted/30 animate-pulse shrink-0" />
+        ))}
+      </div>
+    )
+  }
+
   return (
     <div className="flex gap-3 overflow-x-auto pb-1">
-      {COMMODITIES.map((c) => (
+      {commodities.map((c: any) => (
         <div
           key={c.symbol}
           className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-muted/30 hover:bg-muted/60 transition-colors shrink-0"
         >
-          <span className="text-lg">{c.icon}</span>
+          <span className="text-xs font-mono font-bold text-muted-foreground">{COMMODITY_ICONS[c.name] || c.name.slice(0, 2)}</span>
           <div>
             <span className="font-medium text-xs">{c.name}</span>
-            <p className="text-[10px] text-green-500">+1.2%</p>
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] text-muted-foreground">${c.price?.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+              <span className={`text-[10px] ${c.changePct >= 0 ? "text-green-500" : "text-red-500"}`}>
+                {c.changePct >= 0 ? "+" : ""}{c.changePct?.toFixed(2)}%
+              </span>
+            </div>
           </div>
         </div>
       ))}
