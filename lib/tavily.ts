@@ -18,7 +18,7 @@ export async function tavilySearch(
     includeAnswer?: boolean
   } = {},
 ): Promise<{ answer?: string; results: TavilyResult[] }> {
-  const key = process.env.TAVILY_API_KEY
+  const key = process.env.TAVILY_API_KEY ?? process.env.TAVILY_KEY
   if (!key) return { results: [] }
 
   try {

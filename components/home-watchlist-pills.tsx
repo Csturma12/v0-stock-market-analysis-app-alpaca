@@ -1,158 +1,180 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
+import { useEffect, useMemo, useState } from "react"
 import useSWR from "swr"
+import { MoreHorizontal, Plus, X } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
+import { fmtPct, fmtPrice, fmtVolume } from "@/lib/format"
+import { jsonFetcher } from "@/lib/widget-data"
+import {
+  addTickerToWatchlist,
+  cleanSymbol,
+  DEFAULT_WATCHLISTS,
+  readWatchlists,
+  removeTickerFromWatchlist,
+  type Watchlists,
+} from "./watchlist-storage"
 
-const fetcher = (url: string) => fetch(url).then((r) => r.json())
-
-type WatchItem = {
+type TickerData = {
   symbol: string
-  pattern_name: string
-  pattern_type: string
-  autonomy_score: number
-  win_rate: number
-  avg_return: number
-  recommendation: string
+  ticker?: string
+  price?: number | null
+  open?: number | null
+  high?: number | null
+  low?: number | null
+  changePct?: number | null
+  volume?: number | null
+  snapshot?: { price?: number; open?: number; high?: number; low?: number; changePct?: number; volume?: number }
+  candles?: Array<{ open: number; high: number; low: number; close: number; volume: number }>
+  technicals?: { volumeRatio?: number | null; momentum5?: number | null }
 }
 
-type Quote = {
-  symbol: string
-  latestPrice?: number
-  changePercent?: number
+function scoreHotToday(row: TickerData) {
+  const move = Math.abs(row.snapshot?.changePct ?? row.changePct ?? 0)
+  const volRatio = row.technicals?.volumeRatio ?? 1
+  const momentum = Math.abs(row.technicals?.momentum5 ?? 0) / 2
+  return Math.min(99, Math.round(35 + move * 9 + Math.max(0, volRatio - 1) * 22 + momentum))
 }
 
 export function HomeWatchlistPills() {
-  const { data } = useSWR<{ data: WatchItem[] }>("/api/trading/patterns/top", fetcher, { refreshInterval: 60_000 })
-  const items: WatchItem[] = data?.data ?? []
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const [quotes, setQuotes] = useState<Record<string, Quote>>({})
-  const [isPaused, setIsPaused] = useState(false)
+  const [watchlists, setWatchlists] = useState<Watchlists>(DEFAULT_WATCHLISTS)
+  const [activeList, setActiveList] = useState("Main")
+  const [newSymbol, setNewSymbol] = useState("")
 
-  // Fetch live quotes for each symbol
   useEffect(() => {
-    if (!items.length) return
-    const symbols = items.map((i) => i.symbol)
-    Promise.all(
-      symbols.map((sym) =>
-        fetch(`/api/ticker/${sym}/quote`)
-          .then((r) => r.json())
-          .then((d) => ({ symbol: sym, latestPrice: d.latestPrice ?? d.price, changePercent: d.changePercent ?? d.dp }))
-          .catch(() => ({ symbol: sym }))
-      )
-    ).then((results) => {
-      const map: Record<string, Quote> = {}
-      results.forEach((q) => { map[q.symbol] = q })
-      setQuotes(map)
-    })
-  }, [items.length])
+    setWatchlists(readWatchlists())
+    const handler = (event: Event) => setWatchlists((event as CustomEvent<Watchlists>).detail ?? readWatchlists())
+    window.addEventListener("watchlists-updated", handler)
+    return () => window.removeEventListener("watchlists-updated", handler)
+  }, [])
 
-  // Auto-scroll animation
-  useEffect(() => {
-    const el = scrollRef.current
-    if (!el || items.length === 0) return
-    let frame: number
-    const speed = 0.5 // px per frame
+  const listNames = Object.keys(watchlists)
+  const symbols = useMemo(() => (watchlists[activeList] ?? []).map(cleanSymbol).filter(Boolean), [watchlists, activeList])
+  const watchlistUrl = symbols.length
+    ? `/api/market/subindustry?tickers=${symbols.map(encodeURIComponent).join(",")}`
+    : null
+  const { data, isLoading } = useSWR<{ data: TickerData[] }>(watchlistUrl, jsonFetcher, {
+    refreshInterval: 30_000,
+    dedupingInterval: 20_000,
+    keepPreviousData: true,
+  })
+  const rows = (data?.data ?? [])
+    .map((row) => ({ ...row, symbol: (row.symbol ?? row.ticker ?? "").toUpperCase() }))
+    .filter((row) => row.symbol)
+    .sort((a, b) => scoreHotToday(b) - scoreHotToday(a))
 
-    const scroll = () => {
-      if (!isPaused && el) {
-        el.scrollLeft += speed
-        // Reset to start when we've scrolled through the duplicated list
-        if (el.scrollLeft >= el.scrollWidth / 2) {
-          el.scrollLeft = 0
-        }
-      }
-      frame = requestAnimationFrame(scroll)
-    }
-
-    frame = requestAnimationFrame(scroll)
-    return () => cancelAnimationFrame(frame)
-  }, [isPaused, items.length])
-
-  if (!items.length) {
-    return (
-      <div className="rounded-lg border border-border bg-card/60 p-4">
-        <p className="mb-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Watchlist</p>
-        <p className="text-xs text-muted-foreground">No patterns tracked yet. Go to Trading to scan symbols.</p>
-      </div>
-    )
+  function addToActiveList() {
+    const sym = cleanSymbol(newSymbol)
+    if (!sym) return
+    addTickerToWatchlist(sym, activeList)
+    setNewSymbol("")
   }
 
-  // Duplicate list for seamless loop
-  const loopItems = [...items, ...items]
-
   return (
-    <div className="rounded-lg border border-border bg-card/60 p-4">
-      <p className="mb-3 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-        Pattern Watchlist · {items.length} symbols
-      </p>
-
-      {/* Scrolling pill row */}
-      <div
-        ref={scrollRef}
-        className="flex gap-2 overflow-x-hidden"
-        onMouseEnter={() => setIsPaused(true)}
-        onMouseLeave={() => setIsPaused(false)}
-        style={{ scrollbarWidth: "none" }}
-      >
-        {loopItems.map((item, i) => {
-          const q = quotes[item.symbol]
-          const pct = q?.changePercent ?? null
-          const price = q?.latestPrice ?? null
-          const up = pct !== null ? pct >= 0 : null
-          const score = item.autonomy_score
-
-          return (
-            <Link
-              key={`${item.symbol}-${i}`}
-              href={`/ticker/${item.symbol}`}
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/30 px-2 py-1.5">
+        <div className="flex items-center gap-1">
+          {listNames.map((name) => (
+            <button
+              key={name}
+              type="button"
+              onClick={() => setActiveList(name)}
               className={cn(
-                "flex shrink-0 flex-col gap-0.5 rounded-md border px-3 py-2 transition-colors hover:bg-muted/40",
-                score >= 8
-                  ? "border-[color:var(--color-bull)]/40 bg-[color:var(--color-bull)]/5"
-                  : score >= 6
-                  ? "border-primary/30 bg-primary/5"
-                  : "border-border bg-card",
+                "rounded px-2 py-0.5 font-mono text-[10px] transition-colors",
+                activeList === name ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground",
               )}
             >
-              <div className="flex items-baseline gap-2">
-                <span className="font-mono text-xs font-semibold">{item.symbol}</span>
-                {price !== null && (
-                  <span className="font-mono text-[10px] text-muted-foreground tabular-nums">
-                    ${price.toFixed(2)}
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] text-muted-foreground truncate max-w-[90px]">
-                  {item.pattern_name}
-                </span>
-                {pct !== null && (
-                  <span className={cn("font-mono text-[10px] tabular-nums", up ? "text-[color:var(--color-bull)]" : "text-[color:var(--color-bear)]")}>
-                    {up ? "+" : ""}{(pct * 100).toFixed(2)}%
-                  </span>
-                )}
-              </div>
-            </Link>
-          )
-        })}
-      </div>
-
-      {/* Static scroll fallback for small lists */}
-      {items.length < 4 && (
-        <div className="mt-2 flex flex-wrap gap-2">
-          {items.map((item) => (
-            <Link
-              key={item.symbol}
-              href={`/ticker/${item.symbol}`}
-              className="rounded-md border border-border bg-card px-3 py-1.5 font-mono text-xs hover:bg-muted/40"
-            >
-              {item.symbol}
-            </Link>
+              {name}
+            </button>
           ))}
         </div>
-      )}
+        <div className="flex items-center gap-1">
+          <input
+            value={newSymbol}
+            onChange={(event) => setNewSymbol(event.target.value.toUpperCase())}
+            onKeyDown={(event) => event.key === "Enter" && addToActiveList()}
+            placeholder="Add"
+            className="h-6 w-16 rounded border border-border bg-background px-2 font-mono text-[10px] outline-none focus:border-primary/70"
+          />
+          <Button type="button" size="icon-sm" variant="outline" className="h-6 w-6" onClick={addToActiveList}>
+            <Plus className="h-3 w-3" />
+          </Button>
+        </div>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto p-1">
+        {isLoading && rows.length === 0 ? (
+          <div className="flex h-full items-center justify-center text-xs text-muted-foreground">Loading watchlist...</div>
+        ) : rows.length === 0 ? (
+          <div className="flex h-full items-center justify-center text-xs text-muted-foreground">Add a ticker to start tracking.</div>
+        ) : (
+          <div className="space-y-1">
+            {rows.map((row) => {
+              const candle = row.candles?.[row.candles.length - 1]
+              const o = row.snapshot?.open ?? row.open ?? candle?.open ?? null
+              const h = row.snapshot?.high ?? row.high ?? candle?.high ?? null
+              const l = row.snapshot?.low ?? row.low ?? candle?.low ?? null
+              const c = row.snapshot?.price ?? row.price ?? candle?.close ?? null
+              const pct = row.snapshot?.changePct ?? row.changePct ?? null
+              const up = (pct ?? 0) >= 0
+              const hot = scoreHotToday(row)
+
+              return (
+                <div key={row.symbol} className="grid grid-cols-[52px_1fr_42px_24px] items-center gap-2 rounded border border-border/50 bg-card/40 px-2 py-1 hover:bg-muted/30">
+                  <Link href={`/ticker/${row.symbol}`} className="font-mono text-xs font-bold text-foreground hover:text-primary">
+                    {row.symbol}
+                  </Link>
+                  <Link href={`/ticker/${row.symbol}`} className="min-w-0">
+                    <div className="grid grid-cols-4 gap-1 font-mono text-[9px] text-muted-foreground">
+                      <span>O {fmtPrice(o)}</span>
+                      <span>H {fmtPrice(h)}</span>
+                      <span>L {fmtPrice(l)}</span>
+                      <span>C {fmtPrice(c)}</span>
+                    </div>
+                    <div className="mt-0.5 flex items-center gap-2 font-mono text-[9px]">
+                      <span className={cn(up ? "text-[color:var(--color-bull)]" : "text-[color:var(--color-bear)]")}>{pct == null ? "-" : fmtPct(pct)}</span>
+                      <span className="text-muted-foreground">Vol {fmtVolume(row.snapshot?.volume ?? row.volume)}</span>
+                    </div>
+                  </Link>
+                  <span className={cn("rounded px-1.5 py-0.5 text-center font-mono text-[9px] font-bold", hot >= 75 ? "bg-[color:var(--color-bull)]/15 text-[color:var(--color-bull)]" : hot >= 55 ? "bg-amber-500/15 text-amber-400" : "bg-muted text-muted-foreground")}>
+                    Hot {hot}
+                  </span>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button type="button" className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground">
+                        <MoreHorizontal className="h-3.5 w-3.5" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-44">
+                      <DropdownMenuLabel className="text-xs">Move / Copy</DropdownMenuLabel>
+                      {listNames.map((name) => (
+                        <DropdownMenuItem key={name} onSelect={() => addTickerToWatchlist(row.symbol, name)} className="text-xs">
+                          Add to {name}
+                        </DropdownMenuItem>
+                      ))}
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem variant="destructive" onSelect={() => removeTickerFromWatchlist(row.symbol, activeList)} className="text-xs">
+                        <X className="h-3.5 w-3.5" />
+                        Remove from {activeList}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

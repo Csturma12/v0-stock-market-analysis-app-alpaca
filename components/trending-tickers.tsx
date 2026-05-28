@@ -3,9 +3,9 @@
 import Link from "next/link"
 import { useState, useMemo } from "react"
 import useSWR from "swr"
-import { ArrowDown, ArrowUp } from "lucide-react"
+import { ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { fmtPct, fmtPrice, fmtVolume } from "@/lib/format"
+import { fmtPrice } from "@/lib/format"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
@@ -15,134 +15,217 @@ type Snap = {
   change: number | null
   changePct: number | null
   volume: number | null
-  name?: string
 }
 
-type SortKey = "ticker" | "price" | "change" | "changePct" | "volume"
-type SortDir = "asc" | "desc"
+type SectorGroup = {
+  label: string
+  tickers: string[]
+}
 
-export function TrendingTickers({ tickers }: { tickers: string[] }) {
-  const { data } = useSWR<{ data: Snap[] }>(
-    `/api/market/subindustry?tickers=${tickers.join(",")}`,
-    fetcher,
-    { refreshInterval: 30_000 },
-  )
+// Compute a conviction score 0-100 from changePct + relative volume
+function convictionScore(snap: Snap, avgVolumes: Map<string, number>): number {
+  const pct = Math.abs(snap.changePct ?? 0)
+  const vol = snap.volume ?? 0
+  const avgVol = avgVolumes.get(snap.ticker) ?? vol
+  const volRatio = avgVol > 0 ? Math.min(vol / avgVol, 5) : 1
 
-  const [sortKey, setSortKey] = useState<SortKey>("changePct")
-  const [sortDir, setSortDir] = useState<SortDir>("desc")
+  // Momentum component (0-50): based on abs % move
+  const momentum = Math.min(pct * 10, 50)
 
-  const rows = useMemo(() => {
-    const map = new Map<string, Snap>()
-    for (const s of data?.data ?? []) map.set(s.ticker, s)
-    const base = tickers.map((t) => ({
-      ticker: t,
-      price: map.get(t)?.price ?? null,
-      change: map.get(t)?.change ?? null,
-      changePct: map.get(t)?.changePct ?? null,
-      volume: map.get(t)?.volume ?? null,
-    }))
-    const dir = sortDir === "asc" ? 1 : -1
-    return [...base].sort((a, b) => {
-      if (sortKey === "ticker") return a.ticker.localeCompare(b.ticker) * dir
-      const av = (a as any)[sortKey] as number | null
-      const bv = (b as any)[sortKey] as number | null
-      // Nulls always go to the bottom
-      if (av == null && bv == null) return 0
-      if (av == null) return 1
-      if (bv == null) return -1
-      return (av - bv) * dir
-    })
-  }, [data, tickers, sortKey, sortDir])
+  // Volume conviction (0-50): how much above avg volume
+  const volScore = Math.min(((volRatio - 1) / 4) * 50, 50)
 
-  function toggle(key: SortKey) {
-    if (sortKey === key) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"))
-    } else {
-      setSortKey(key)
-      // Default descending for numeric columns, ascending for ticker
-      setSortDir(key === "ticker" ? "asc" : "desc")
-    }
-  }
+  return Math.round(momentum + volScore)
+}
 
-  const headerBtn = (key: SortKey, label: string, align: "left" | "right" = "right") => {
-    const active = sortKey === key
-    const Icon = active ? (sortDir === "asc" ? ArrowUp : ArrowDown) : null
-    return (
-      <button
-        type="button"
-        onClick={() => toggle(key)}
-        className={cn(
-          "inline-flex items-center gap-1 font-mono text-xs uppercase tracking-widest transition-colors hover:text-foreground",
-          active ? "text-foreground" : "text-muted-foreground",
-          align === "right" ? "justify-end" : "justify-start",
-        )}
-      >
-        {label}
-        {Icon && <Icon className="h-3 w-3" />}
-      </button>
-    )
-  }
+function signalLabel(snap: Snap, score: number): "BUY" | "SELL" | "HOLD" {
+  const pct = snap.changePct ?? 0
+  if (score >= 65 && pct > 0) return "BUY"
+  if (score >= 65 && pct < 0) return "SELL"
+  return "HOLD"
+}
+
+// Single collapsible sector pill group
+function SectorPill({
+  label,
+  rows,
+  defaultOpen,
+}: {
+  label: string
+  rows: { snap: Snap; score: number; signal: "BUY" | "SELL" | "HOLD" }[]
+  defaultOpen: boolean
+}) {
+  const [open, setOpen] = useState(defaultOpen)
 
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-card">
-      <table className="w-full">
-        <thead className="border-b border-border bg-muted/40">
-          <tr>
-            <th className="px-4 py-2.5 text-left">{headerBtn("ticker", "Ticker", "left")}</th>
-            <th className="px-4 py-2.5 text-right">{headerBtn("price", "Price")}</th>
-            <th className="px-4 py-2.5 text-right">{headerBtn("change", "Change")}</th>
-            <th className="px-4 py-2.5 text-right">{headerBtn("changePct", "% Day")}</th>
-            <th className="hidden px-4 py-2.5 text-right md:table-cell">{headerBtn("volume", "Volume")}</th>
-            <th className="px-4 py-2.5 text-right"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((s) => {
-            const up = s.changePct != null && s.changePct >= 0
+    <div className="rounded-md border border-border bg-card overflow-hidden">
+      {/* Header */}
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between px-3 py-2 hover:bg-muted/40 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-[10px] font-semibold uppercase tracking-widest text-[color:var(--color-bull)]">
+            {label}
+          </span>
+          <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[9px] text-muted-foreground">
+            {rows.length}
+          </span>
+        </div>
+        <ChevronDown
+          className={cn(
+            "h-3.5 w-3.5 text-muted-foreground transition-transform duration-200",
+            open && "rotate-180"
+          )}
+        />
+      </button>
+
+      {/* Rows */}
+      {open && (
+        <div className="border-t border-border/60">
+          {rows.map(({ snap, score, signal }) => {
+            const up = (snap.changePct ?? 0) >= 0
             return (
-              <tr key={s.ticker} className="border-b border-border/60 last:border-0 hover:bg-accent/40">
-                <td className="px-4 py-3">
-                  <Link href={`/ticker/${s.ticker}`} className="font-mono text-sm font-semibold hover:text-primary">
-                    {s.ticker}
-                  </Link>
-                </td>
-                <td className="px-4 py-3 text-right font-mono text-sm tabular-nums">{fmtPrice(s.price)}</td>
-                <td
+              <Link
+                key={snap.ticker}
+                href={`/ticker/${snap.ticker}`}
+                className="flex items-center gap-2 px-3 py-1.5 hover:bg-muted/30 transition-colors border-b border-border/30 last:border-0"
+              >
+                {/* Ticker */}
+                <span className="w-14 shrink-0 font-mono text-xs font-semibold text-foreground">
+                  {snap.ticker}
+                </span>
+
+                {/* Price */}
+                <span className="w-16 shrink-0 text-right font-mono text-xs tabular-nums text-muted-foreground">
+                  {snap.price != null ? `$${snap.price.toFixed(2)}` : "—"}
+                </span>
+
+                {/* % Change */}
+                <span
                   className={cn(
-                    "px-4 py-3 text-right font-mono text-sm tabular-nums",
-                    s.change == null && "text-muted-foreground",
-                    s.change != null && up && "text-[color:var(--color-bull)]",
-                    s.change != null && !up && "text-[color:var(--color-bear)]",
+                    "flex-1 text-right font-mono text-xs tabular-nums",
+                    snap.changePct == null && "text-muted-foreground",
+                    snap.changePct != null && up && "text-[color:var(--color-bull)]",
+                    snap.changePct != null && !up && "text-[color:var(--color-bear)]",
                   )}
                 >
-                  {s.change == null ? "—" : `${up ? "+" : ""}${s.change.toFixed(2)}`}
-                </td>
-                <td
+                  {snap.changePct == null
+                    ? "—"
+                    : `${up ? "+" : ""}${snap.changePct.toFixed(2)}%`}
+                </span>
+
+                {/* Signal pill */}
+                <span
                   className={cn(
-                    "px-4 py-3 text-right font-mono text-sm tabular-nums",
-                    s.changePct == null && "text-muted-foreground",
-                    s.changePct != null && up && "text-[color:var(--color-bull)]",
-                    s.changePct != null && !up && "text-[color:var(--color-bear)]",
+                    "w-10 shrink-0 rounded px-1.5 py-0.5 text-center font-mono text-[9px] font-bold uppercase tracking-wide",
+                    signal === "BUY" &&
+                      "bg-[color:var(--color-bull)]/15 text-[color:var(--color-bull)]",
+                    signal === "SELL" &&
+                      "bg-[color:var(--color-bear)]/15 text-[color:var(--color-bear)]",
+                    signal === "HOLD" && "bg-muted text-muted-foreground",
                   )}
                 >
-                  {s.changePct == null ? "—" : fmtPct(s.changePct)}
-                </td>
-                <td className="hidden px-4 py-3 text-right font-mono text-sm tabular-nums text-muted-foreground md:table-cell">
-                  {fmtVolume(s.volume)}
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <Link
-                    href={`/ticker/${s.ticker}`}
-                    className="font-mono text-xs uppercase tracking-widest text-primary hover:underline"
-                  >
-                    Analyze
-                  </Link>
-                </td>
-              </tr>
+                  {signal}
+                </span>
+
+                {/* Conviction % */}
+                <span className="w-8 shrink-0 text-right font-mono text-[10px] tabular-nums text-muted-foreground">
+                  {score}%
+                </span>
+              </Link>
             )
           })}
-        </tbody>
-      </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
+// Main component — supports flat list (old API) or grouped sectors
+// ─────────────────────────────────────────────────────────────
+export function TrendingTickers({
+  tickers,
+  groups,
+  maxPerGroup = 20,
+}: {
+  tickers?: string[]
+  groups?: SectorGroup[]
+  maxPerGroup?: number
+}) {
+  // Flatten all tickers from groups or use flat list
+  const allTickers = useMemo(() => {
+    if (groups) return [...new Set(groups.flatMap((g) => g.tickers))]
+    return tickers ?? []
+  }, [groups, tickers])
+
+  const { data } = useSWR<{ data: Snap[] }>(
+    allTickers.length
+      ? `/api/market/subindustry?tickers=${allTickers.join(",")}`
+      : null,
+    fetcher,
+    { refreshInterval: 30_000 }
+  )
+
+  // Build a quick avg-volume map (use volume itself as proxy when no historical data)
+  // In practice, a real avg would come from a /history endpoint — here we use the median
+  const avgVolumes = useMemo(() => {
+    const map = new Map<string, number>()
+    const snaps = data?.data ?? []
+    const vols = snaps.map((s) => s.volume ?? 0).filter((v) => v > 0).sort((a, b) => a - b)
+    const median = vols[Math.floor(vols.length / 2)] ?? 1_000_000
+    for (const s of snaps) map.set(s.ticker, median)
+    return map
+  }, [data])
+
+  const snapMap = useMemo(() => {
+    const map = new Map<string, Snap>()
+    for (const s of data?.data ?? []) map.set(s.ticker, s)
+    return map
+  }, [data])
+
+  // Build scored + ranked rows per group
+  const scoredGroups = useMemo(() => {
+    const buildRows = (tickerList: string[]) =>
+      tickerList
+        .map((t) => {
+          const snap = snapMap.get(t) ?? { ticker: t, price: null, change: null, changePct: null, volume: null }
+          const score = convictionScore(snap, avgVolumes)
+          const signal = signalLabel(snap, score)
+          return { snap, score, signal }
+        })
+        .sort((a, b) => b.score - a.score)
+        .slice(0, maxPerGroup)
+
+    if (groups) {
+      return groups.map((g, i) => ({
+        label: g.label,
+        rows: buildRows(g.tickers),
+        defaultOpen: i === 0,
+      }))
+    }
+
+    // Flat list — single "Trending" group
+    return [
+      {
+        label: "Trending",
+        rows: buildRows(allTickers),
+        defaultOpen: true,
+      },
+    ]
+  }, [groups, allTickers, snapMap, avgVolumes, maxPerGroup])
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      {scoredGroups.map((g) => (
+        <SectorPill
+          key={g.label}
+          label={g.label}
+          rows={g.rows}
+          defaultOpen={g.defaultOpen}
+        />
+      ))}
     </div>
   )
 }

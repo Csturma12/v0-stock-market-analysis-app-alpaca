@@ -10,11 +10,13 @@ export function TradingAccount() {
   const acc = data?.account
 
   if (acc?.error) {
+    const broker = acc?.broker === "webull" ? "Webull" : "Alpaca"
+
     return (
       <div className="rounded-lg border border-[color:var(--color-bear)]/40 bg-[color:var(--color-bear)]/10 p-5">
-        <h3 className="mb-1 text-base font-semibold">Alpaca not connected</h3>
+        <h3 className="mb-1 text-base font-semibold">{broker} not connected</h3>
         <p className="text-sm leading-relaxed text-muted-foreground">
-          Add ALPACA_API_KEY_ID and ALPACA_API_SECRET_KEY as env vars (use Paper keys from app.alpaca.markets).
+          Add the required broker environment variables in Vercel and redeploy.
         </p>
       </div>
     )
@@ -28,9 +30,11 @@ export function TradingAccount() {
   return (
     <div className="rounded-lg border border-border bg-card p-5">
       <div className="mb-4 flex items-baseline justify-between">
-        <h3 className="text-base font-semibold">Paper Account</h3>
+        <h3 className="text-base font-semibold">
+          {acc?.broker === "webull" ? acc?.account_label ?? "Webull Account" : "Paper Account"}
+        </h3>
         <span className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
-          {acc?.status ?? "—"}
+          {acc?.status ?? "-"}
         </span>
       </div>
 

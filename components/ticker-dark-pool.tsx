@@ -1,10 +1,21 @@
 "use client"
 
+import { useState } from "react"
 import useSWR from "swr"
 import { fmtUsd, fmtCompact } from "@/lib/format"
-import { Activity, TrendingDown, TrendingUp } from "lucide-react"
+import { Activity, TrendingDown, TrendingUp, ChevronDown } from "lucide-react"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
+
+const PERIODS = [
+  { id: "previous_session", label: "Previous Session" },
+  { id: "weekly", label: "Weekly Activity" },
+  { id: "monthly", label: "Monthly Activity" },
+  { id: "3_month", label: "3 Month" },
+  { id: "6_month", label: "6 Month" },
+] as const
+
+type Period = (typeof PERIODS)[number]["id"]
 
 type UWSummary = {
   darkPool: {
@@ -37,9 +48,12 @@ type UWSummary = {
 }
 
 export function TickerDarkPool({ symbol }: { symbol: string }) {
-  const { data, isLoading } = useSWR<{ uw: UWSummary | null }>(`/api/ticker/${symbol}/flow`, fetcher, {
-    refreshInterval: 60_000,
-  })
+  const [period, setPeriod] = useState<Period>("weekly")
+  const { data, isLoading } = useSWR<{ uw: UWSummary | null }>(
+    `/api/ticker/${symbol}/flow?period=${period}`,
+    fetcher,
+    { refreshInterval: 60_000 }
+  )
 
   if (isLoading) {
     return <div className="h-64 animate-pulse rounded-lg border border-border bg-card" />
@@ -68,7 +82,20 @@ export function TickerDarkPool({ symbol }: { symbol: string }) {
             <Activity className="h-4 w-4 text-primary" />
             Dark Pool Activity
           </h3>
-          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Unusual Whales</span>
+          <div className="relative inline-block">
+            <select
+              value={period}
+              onChange={(e) => setPeriod(e.target.value as Period)}
+              className="appearance-none rounded-md border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer pr-7"
+            >
+              {PERIODS.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+          </div>
         </div>
 
         <div className="grid grid-cols-3 gap-4 border-b border-border pb-4">
@@ -91,7 +118,7 @@ export function TickerDarkPool({ symbol }: { symbol: string }) {
         <div className="mt-4">
           <div className="mb-2 text-xs font-medium text-muted-foreground">Recent Prints</div>
           {darkPool.prints.length === 0 ? (
-            <p className="text-xs text-muted-foreground">No dark pool prints in the last session.</p>
+            <p className="text-xs text-muted-foreground">No dark pool prints found for this period.</p>
           ) : (
             <div className="max-h-48 overflow-y-auto">
               <table className="w-full text-xs">
@@ -104,10 +131,16 @@ export function TickerDarkPool({ symbol }: { symbol: string }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {darkPool.prints.slice(0, 10).map((p, i) => (
+                  {darkPool.prints.slice(0, 15).map((p, i) => {
+                    const date = new Date(p.executedAt)
+                    const isToday = date.toDateString() === new Date().toDateString()
+                    const timeStr = isToday 
+                      ? date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                      : date.toLocaleDateString([], { month: "short", day: "numeric" }) + " " + date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                    return (
                     <tr key={i} className="border-t border-border/40">
-                      <td className="py-1.5 text-muted-foreground">
-                        {new Date(p.executedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      <td className="py-1.5 text-muted-foreground whitespace-nowrap">
+                        {timeStr}
                       </td>
                       <td className="py-1.5 font-mono text-foreground">${p.price.toFixed(2)}</td>
                       <td className="py-1.5 font-mono text-foreground">{fmtCompact(p.size)}</td>
@@ -115,7 +148,8 @@ export function TickerDarkPool({ symbol }: { symbol: string }) {
                         {fmtUsd(p.premium)}
                       </td>
                     </tr>
-                  ))}
+                  )}
+                  )}
                 </tbody>
               </table>
             </div>
@@ -168,7 +202,7 @@ export function TickerDarkPool({ symbol }: { symbol: string }) {
         <div className="mt-4">
           <div className="mb-2 text-xs font-medium text-muted-foreground">Recent Alerts</div>
           {flow.alerts.length === 0 ? (
-            <p className="text-xs text-muted-foreground">No flow alerts in the last session.</p>
+            <p className="text-xs text-muted-foreground">No recent flow alerts found.</p>
           ) : (
             <div className="max-h-48 overflow-y-auto">
               <table className="w-full text-xs">

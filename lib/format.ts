@@ -28,6 +28,17 @@ export function fmtCompact(n: number | null | undefined) {
 export const fmtPrice = fmtUsd
 export const fmtVolume = fmtCompact
 
+// Aliases for widget components
+export const formatCurrency = fmtUsd
+export const formatPercent = fmtPct
+export const formatNumber = fmtNum
+export const formatLargeNumber = fmtCompact
+
+export function formatTime(date: string | number | Date | null | undefined) {
+  if (!date) return "—"
+  return new Date(date).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })
+}
+
 export function moveClass(change: number | null | undefined) {
   if (change == null || !Number.isFinite(change) || Math.abs(change) < 0.01) return "text-muted-foreground"
   return change > 0 ? "text-primary" : "text-destructive"

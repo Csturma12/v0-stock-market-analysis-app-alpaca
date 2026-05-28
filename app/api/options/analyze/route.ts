@@ -8,6 +8,8 @@ import {
   realizedVol,
   type OptionChainSnapshot,
 } from "@/lib/polygon-options"
+import { getFullMetrics, formatForLLM as formatFlashAlphaForLLM } from "@/lib/flashalpha"
+import { getTradierFlowSummary, formatTradierFlowForLLM } from "@/lib/tradier-unusual-activity"
 
 export const maxDuration = 45
 
@@ -35,7 +37,12 @@ export async function POST(req: Request) {
   const { symbol } = await req.json()
   const sym = String(symbol).toUpperCase()
 
-  const [snapshot, candles] = await Promise.all([getSnapshot(sym), getAggregates(sym, 60)])
+  const [snapshot, candles, flashAlpha, tradierFlow] = await Promise.all([
+    getSnapshot(sym),
+    getAggregates(sym, 60),
+    getFullMetrics(sym),
+    getTradierFlowSummary(sym),
+  ])
   const spot = snapshot?.price ?? 0
   if (!spot) {
     return Response.json({ error: `Could not fetch spot price for ${sym}` }, { status: 400 })
@@ -97,10 +104,17 @@ export async function POST(req: Request) {
     }
   })
 
+  const flashAlphaContext = flashAlpha ? formatFlashAlphaForLLM(flashAlpha) : ""
+  const tradierContext = tradierFlow ? formatTradierFlowForLLM(tradierFlow) : ""
+
   const context = `
 TICKER: ${sym}
 Spot: $${spot.toFixed(2)}
 30-day realized vol (annualized): ${(rv30 * 100).toFixed(1)}%
+
+${flashAlphaContext}
+
+${tradierContext}
 
 OPTIONS CHAIN (nearest 4 expiries, ATM +/- 4 strikes):
 ${chainSummary}
