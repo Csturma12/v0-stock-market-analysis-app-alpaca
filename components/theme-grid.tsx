@@ -3,7 +3,6 @@ import Link from "next/link"
 import type { Theme } from "@/lib/themes"
 import { cn } from "@/lib/utils"
 import {
-  ArrowUpRight,
   Sparkles,
   Scale,
   Building2,
@@ -15,18 +14,11 @@ import {
   Cpu,
 } from "lucide-react"
 
-const ACCENT_CLASSES: Record<Theme["accent"], string> = {
-  primary: "border-primary/40 hover:border-primary hover:shadow-[0_0_0_1px_var(--primary)]",
-  bull: "border-[color:var(--color-bull)]/40 hover:border-[color:var(--color-bull)]",
-  bear: "border-[color:var(--color-bear)]/40 hover:border-[color:var(--color-bear)]",
-  warning: "border-amber-400/40 hover:border-amber-400",
-}
-
-const ACCENT_ICON: Record<Theme["accent"], string> = {
-  primary: "text-primary",
-  bull: "text-[color:var(--color-bull)]",
-  bear: "text-[color:var(--color-bear)]",
-  warning: "text-amber-400",
+const ACCENT_PILL: Record<Theme["accent"], string> = {
+  primary: "border-primary/40 hover:border-primary text-primary",
+  bull: "border-[color:var(--color-bull)]/40 hover:border-[color:var(--color-bull)] text-[color:var(--color-bull)]",
+  bear: "border-[color:var(--color-bear)]/40 hover:border-[color:var(--color-bear)] text-[color:var(--color-bear)]",
+  warning: "border-amber-400/40 hover:border-amber-400 text-amber-400",
 }
 
 const THEME_ICONS: Record<string, React.ElementType> = {
@@ -48,32 +40,19 @@ function ThemeIcon({ id, className }: { id: string; className?: string }) {
 
 export function ThemeGrid({ themes }: { themes: Theme[] }) {
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="flex flex-wrap gap-2">
       {themes.map((t) => (
         <Link
           key={t.id}
           href={`/theme/${t.id}`}
           className={cn(
-            "group relative flex flex-col gap-2 rounded-lg border bg-card p-4 transition-all hover:shadow-lg",
-            ACCENT_CLASSES[t.accent],
+            "inline-flex items-center gap-1.5 rounded-full border bg-card px-3 py-1.5 text-xs transition-all hover:bg-muted/60",
+            ACCENT_PILL[t.accent],
           )}
         >
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <ThemeIcon id={t.id} className={cn("h-5 w-5", ACCENT_ICON[t.accent])} />
-              <h3 className="text-base font-semibold leading-tight text-card-foreground">{t.name}</h3>
-            </div>
-            <ArrowUpRight className="h-5 w-5 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground" />
-          </div>
-
-          <p className="line-clamp-2 text-pretty text-xs leading-relaxed text-muted-foreground">{t.description}</p>
-
-          <div className="mt-auto flex items-center justify-between gap-3 pt-1">
-            <span className={cn("font-mono text-xs uppercase tracking-widest", ACCENT_ICON[t.accent])}>
-              {t.subtopics.length} topics · {t.tickers.length} tickers
-            </span>
-            <span className="font-mono text-xs uppercase tracking-widest text-muted-foreground">Theme</span>
-          </div>
+          <ThemeIcon id={t.id} className="h-3 w-3 shrink-0" />
+          <span className="font-medium text-card-foreground">{t.name}</span>
+          <span className="font-mono text-[10px] text-muted-foreground">{t.tickers.length}t</span>
         </Link>
       ))}
     </div>
