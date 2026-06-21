@@ -2,12 +2,18 @@
 const BASE = "https://finnhub.io/api/v1"
 
 function key() {
-  const k = process.env.FINNHUB_API_KEY ?? process.env.FINNHUB_KEY
-  if (!k) throw new Error("FINNHUB_API_KEY or FINNHUB_KEY is not set")
-  return k
+  return process.env.FINNHUB_API_KEY ?? process.env.FINNHUB_KEY ?? ""
+}
+
+export function isConfigured(): boolean {
+  return !!key()
 }
 
 async function fh<T>(path: string, params: Record<string, string | number> = {}): Promise<T> {
+  if (!key()) {
+    // Provider key removed — fail gracefully so callers return empty data.
+    throw new Error("FINNHUB_DISABLED")
+  }
   const url = new URL(BASE + path)
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, String(v))
   url.searchParams.set("token", key())

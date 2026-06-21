@@ -2,12 +2,18 @@
 const BASE = "https://api.polygon.io"
 
 function key() {
-  const k = process.env.POLYGON_API_KEY ?? process.env.POLYGON_KEY
-  if (!k) throw new Error("POLYGON_API_KEY or POLYGON_KEY is not set")
-  return k
+  return process.env.POLYGON_API_KEY ?? process.env.POLYGON_KEY ?? ""
+}
+
+export function isConfigured(): boolean {
+  return !!key()
 }
 
 async function poly<T>(path: string, params: Record<string, string | number> = {}): Promise<T> {
+  if (!key()) {
+    // Provider key removed — fail gracefully so callers return empty data.
+    throw new Error("POLYGON_DISABLED")
+  }
   const url = new URL(BASE + path)
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, String(v))
   url.searchParams.set("apiKey", key())
@@ -352,7 +358,8 @@ export async function getFinancials(ticker: string, limit = 8): Promise<Financia
       }) ?? []
     )
   } catch (e) {
-    console.error("[Polygon] getFinancials error:", (e as Error).message)
+    const msg = (e as Error).message
+    if (msg !== "POLYGON_DISABLED") console.error("[Polygon] getFinancials error:", msg)
     return []
   }
 }
