@@ -1,16 +1,24 @@
 const BASE = "https://api.unusualwhales.com/api"
 
+function uwKey() {
+  return process.env.UNUSUAL_WHALES_API_KEY ?? process.env.UNUSUAL_WHALES_KEY ?? ""
+}
+
+export function isConfigured(): boolean {
+  return !!uwKey()
+}
+
 function headers() {
-  const key = process.env.UNUSUAL_WHALES_API_KEY ?? process.env.UNUSUAL_WHALES_KEY
-  if (!key) throw new Error("UNUSUAL_WHALES_API_KEY or UNUSUAL_WHALES_KEY is not set")
   return {
-    Authorization: `Bearer ${key}`,
+    Authorization: `Bearer ${uwKey()}`,
     "UW-CLIENT-API-ID": "100001",
     Accept: "application/json",
   }
 }
 
 async function uwFetch<T>(path: string): Promise<T | null> {
+  // Provider key removed — fail gracefully so callers return empty data.
+  if (!uwKey()) return null
   try {
     const url = `${BASE}${path}`
     const res = await fetch(url, {
